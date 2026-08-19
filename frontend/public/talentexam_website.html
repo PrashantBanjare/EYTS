@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TalentExam — Official Website</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --navy: #0a1628;
+      --navy2: #112240;
+      --navy3: #1a3a5c;
+      --gold: #c9a84c;
+      --gold2: #e2c06a;
+      --gold3: #f5e09a;
+      --white: #ffffff;
+      --gray: #f4f6f9;
+      --text: #1a1a2e;
+      --muted: #64748b;
+      --border: rgba(201,168,76,0.2);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family:'Inter',sans-serif; color:var(--text); background:var(--white); }
+    a { text-decoration:none; color:inherit; }
+ 
+    
+    /* ── NAVBAR ── */
+    nav {
+      position: fixed; top:0; left:0; right:0; z-index:999;
+      background: rgba(10,22,40,0.97);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 5%;
+      height: 70px;
+      display: flex; align-items:center; justify-content:space-between;
+    }
+    .nav-logo {
+      display:flex; align-items:center; gap:10px;
+    }
+    .nav-logo-icon {
+      width:38px; height:38px; background:var(--gold);
+      border-radius:8px; display:flex; align-items:center; justify-content:center;
+      font-weight:900; font-size:1.1rem; color:var(--navy);
+    }
+    .nav-logo-text { font-size:1.2rem; font-weight:800; color:var(--white); letter-spacing:-0.02em; }
+    .nav-logo-text span { color:var(--gold); }
+    .nav-links { display:flex; gap:2rem; align-items:center; }
+    .nav-links a {
+      color:rgba(255,255,255,0.75); font-size:.88rem; font-weight:500;
+      transition:color .2s; letter-spacing:.01em;
+    }
+    .nav-links a:hover { color:var(--gold); }
+    .nav-actions { display:flex; gap:.75rem; align-items:center; }
+    .btn-outline {
+      padding:.45rem 1.1rem; border:1.5px solid var(--gold);
+      color:var(--gold); border-radius:6px; font-size:.85rem; font-weight:600;
+      transition:all .2s; cursor:pointer; background:transparent;
+    }
+    .btn-outline:hover { background:var(--gold); color:var(--navy); }
+    .btn-gold {
+      padding:.45rem 1.1rem; background:var(--gold);
+      color:var(--navy); border-radius:6px; font-size:.85rem; font-weight:700;
+      transition:all .2s; cursor:pointer; border:none;
+    }
+    .btn-gold:hover { background:var(--gold2); transform:translateY(-1px); }
+    .hamburger { display:none; flex-direction:column; gap:5px; cursor:pointer; }
+    .hamburger span { width:24px; height:2px; background:var(--white); border-radius:2px; }
+
+    /* ── HERO ── */
+    #home {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 50%, var(--navy3) 100%);
+      display:flex; align-items:center; justify-content:center;
+      text-align:center; padding:100px 5% 60px;
+      position:relative; overflow:hidden;
+    }
+    .hero-bg-circle {
+      position:absolute; border-radius:50%;
+      background: rgba(201,168,76,0.06); pointer-events:none;
+    }
+    .hero-content { position:relative; z-index:1; max-width:800px; }
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:rgba(201,168,76,0.12); border:1px solid var(--border);
+      color:var(--gold); padding:.4rem 1rem; border-radius:999px;
+      font-size:.8rem; font-weight:600; margin-bottom:1.75rem; letter-spacing:.04em;
+    }
+    .hero-title {
+      font-size:clamp(2.5rem,5vw,4rem); font-weight:900; color:var(--white);
+      line-height:1.1; margin-bottom:1.25rem; letter-spacing:-.03em;
+    }
+    .hero-title span { color:var(--gold); }
+    .hero-sub {
+      font-size:1.1rem; color:rgba(255,255,255,0.65); max-width:580px;
+      margin:0 auto 2.5rem; line-height:1.7;
+    }
+    .hero-actions { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+    .btn-hero-primary {
+      padding:.85rem 2rem; background:var(--gold); color:var(--navy);
+      border-radius:8px; font-size:1rem; font-weight:700; border:none;
+      cursor:pointer; transition:all .2s; letter-spacing:.01em;
+    }
+    .btn-hero-primary:hover { background:var(--gold2); transform:translateY(-2px); box-shadow:0 8px 24px rgba(201,168,76,0.3); }
+    .btn-hero-secondary {
+      padding:.85rem 2rem; background:transparent; color:var(--white);
+      border-radius:8px; font-size:1rem; font-weight:600;
+      border:1.5px solid rgba(255,255,255,0.3); cursor:pointer; transition:all .2s;
+    }
+    .btn-hero-secondary:hover { border-color:var(--gold); color:var(--gold); }
+    .hero-stats {
+      display:flex; gap:3rem; justify-content:center; flex-wrap:wrap;
+      margin-top:4rem; padding-top:3rem;
+      border-top:1px solid rgba(255,255,255,0.08);
+    }
+    .hero-stat { text-align:center; }
+    .hero-stat-number { font-size:2rem; font-weight:800; color:var(--gold); }
+    .hero-stat-label { font-size:.8rem; color:rgba(255,255,255,0.5); margin-top:.25rem; text-transform:uppercase; letter-spacing:.06em; }
+
+    /* ── SECTIONS ── */
+    section { padding:90px 5%; }
+    .section-badge {
+      display:inline-flex; align-items:center; gap:.4rem;
+      background:rgba(201,168,76,0.1); color:var(--gold);
+      padding:.35rem .9rem; border-radius:999px;
+      font-size:.75rem; font-weight:700; letter-spacing:.06em;
+      text-transform:uppercase; margin-bottom:1rem;
+    }
+    .section-title {
+      font-size:clamp(1.8rem,3.5vw,2.6rem); font-weight:800;
+      color:var(--navy); line-height:1.15; margin-bottom:1rem;
+      letter-spacing:-.02em;
+    }
+    .section-title span { color:var(--gold); }
+    .section-sub {
+      font-size:1rem; color:var(--muted); max-width:560px; line-height:1.7; margin-bottom:3rem;
+    }
+    .container { max-width:1100px; margin:0 auto; }
+    .text-center { text-align:center; }
+    .text-center .section-sub { margin-left:auto; margin-right:auto; }
+
+    /* ── ABOUT ── */
+    #about { background:var(--gray); }
+    .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center; }
+    .about-visual {
+      background:linear-gradient(135deg,var(--navy),var(--navy3));
+      border-radius:16px; padding:3rem; color:var(--white);
+      position:relative; overflow:hidden;
+    }
+    .about-visual::before {
+      content:''; position:absolute; top:-40px; right:-40px;
+      width:180px; height:180px; border-radius:50%;
+      background:rgba(201,168,76,0.1);
+    }
+    .about-quote {
+      font-size:1.2rem; font-weight:600; line-height:1.6;
+      color:var(--gold2); margin-bottom:1.5rem; position:relative; z-index:1;
+    }
+    .about-quote::before { content:'"'; font-size:4rem; color:var(--gold); line-height:.5; display:block; margin-bottom:.5rem; }
+    .about-author { font-size:.85rem; color:rgba(255,255,255,0.6); position:relative; z-index:1; }
+    .about-text p { color:var(--muted); line-height:1.8; margin-bottom:1rem; font-size:.95rem; }
+    .about-values { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1.5rem; }
+    .about-value {
+      background:var(--white); border-radius:10px; padding:1rem;
+      border-left:3px solid var(--gold);
+    }
+    .about-value-title { font-weight:700; font-size:.88rem; color:var(--navy); margin-bottom:.25rem; }
+    .about-value-text { font-size:.8rem; color:var(--muted); line-height:1.5; }
+
+    /* ── SERVICES ── */
+    #services { background:var(--white); }
+    .services-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1.5rem; }
+    .service-card {
+      background:var(--white); border:1px solid #e8edf5;
+      border-radius:14px; padding:2rem; transition:all .3s;
+      position:relative; overflow:hidden;
+    }
+    .service-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background:linear-gradient(90deg,var(--gold),var(--gold2));
+      opacity:0; transition:opacity .3s;
+    }
+    .service-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(10,22,40,0.1); border-color:var(--gold); }
+    .service-card:hover::before { opacity:1; }
+    .service-icon {
+      width:52px; height:52px; border-radius:12px;
+      background:rgba(201,168,76,0.1); display:flex; align-items:center;
+      justify-content:center; font-size:1.5rem; margin-bottom:1.25rem;
+    }
+    .service-title { font-size:1.05rem; font-weight:700; color:var(--navy); margin-bottom:.5rem; }
+    .service-text { font-size:.88rem; color:var(--muted); line-height:1.7; margin-bottom:1rem; }
+    .service-tag {
+      display:inline-block; background:rgba(201,168,76,0.1); color:var(--gold);
+      padding:.2rem .6rem; border-radius:4px; font-size:.72rem; font-weight:600;
+    }
+
+    /* ── EXAMS ── */
+    #exams { background:var(--gray); }
+    .exams-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:1.5rem; }
+    .exam-card {
+      background:var(--white); border-radius:14px; overflow:hidden;
+      border:1px solid #e8edf5; transition:all .3s;
+    }
+    .exam-card:hover { transform:translateY(-3px); box-shadow:0 12px 32px rgba(10,22,40,0.1); }
+    .exam-card-header {
+      background:linear-gradient(135deg,var(--navy),var(--navy3));
+      padding:1.5rem; color:var(--white);
+    }
+    .exam-card-badge {
+      display:inline-block; background:rgba(201,168,76,0.2); color:var(--gold);
+      padding:.2rem .6rem; border-radius:4px; font-size:.72rem; font-weight:700;
+      margin-bottom:.75rem; text-transform:uppercase; letter-spacing:.04em;
+    }
+    .exam-card-title { font-size:1.1rem; font-weight:700; margin-bottom:.25rem; }
+    .exam-card-sub { font-size:.8rem; color:rgba(255,255,255,0.6); }
+    .exam-card-body { padding:1.5rem; }
+    .exam-detail { display:flex; justify-content:space-between; align-items:center; padding:.5rem 0; border-bottom:1px solid #f0f0f0; font-size:.85rem; }
+    .exam-detail:last-of-type { border-bottom:none; }
+    .exam-detail-label { color:var(--muted); }
+    .exam-detail-value { font-weight:600; color:var(--navy); }
+    .exam-card-footer { padding:0 1.5rem 1.5rem; }
+    .btn-exam {
+      width:100%; padding:.75rem; background:var(--navy); color:var(--white);
+      border:none; border-radius:8px; font-size:.88rem; font-weight:600;
+      cursor:pointer; transition:all .2s;
+    }
+    .btn-exam:hover { background:var(--gold); color:var(--navy); }
+    .status-open { color:#16a34a; font-weight:700; }
+    .status-upcoming { color:var(--gold); font-weight:700; }
+    .status-closed { color:#dc2626; font-weight:700; }
+
+    /* ── MISSION ── */
+    #mission {
+      background:linear-gradient(135deg,var(--navy),var(--navy2));
+      color:var(--white); text-align:center;
+    }
+    #mission .section-title { color:var(--white); }
+    .mission-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:2rem; margin-top:3rem; }
+    .mission-card {
+      background:rgba(255,255,255,0.05); border:1px solid rgba(201,168,76,0.15);
+      border-radius:14px; padding:2rem; text-align:center; transition:all .3s;
+    }
+    .mission-card:hover { background:rgba(201,168,76,0.08); border-color:var(--gold); transform:translateY(-3px); }
+    .mission-icon { font-size:2.5rem; margin-bottom:1rem; }
+    .mission-title { font-size:1rem; font-weight:700; color:var(--gold); margin-bottom:.5rem; }
+    .mission-text { font-size:.85rem; color:rgba(255,255,255,0.6); line-height:1.6; }
+
+    /* ── INITIATIVES ── */
+    #initiatives { background:var(--white); }
+    .initiatives-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1.5rem; }
+    .initiative-card {
+      border-radius:14px; overflow:hidden; border:1px solid #e8edf5;
+      transition:all .3s;
+    }
+    .initiative-card:hover { box-shadow:0 12px 32px rgba(10,22,40,0.1); transform:translateY(-3px); }
+    .initiative-header { padding:2rem; }
+    .initiative-header.exam { background:linear-gradient(135deg,#0a1628,#1a3a5c); }
+    .initiative-header.health { background:linear-gradient(135deg,#0f4c35,#1a7a55); }
+    .initiative-header.ngo { background:linear-gradient(135deg,#4a1a6b,#7b2fa8); }
+    .initiative-icon { font-size:2rem; margin-bottom:.75rem; }
+    .initiative-title { font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:.25rem; }
+    .initiative-sub { font-size:.8rem; color:rgba(255,255,255,0.6); }
+    .initiative-body { padding:1.5rem; background:var(--white); }
+    .initiative-text { font-size:.88rem; color:var(--muted); line-height:1.7; margin-bottom:1rem; }
+    .initiative-list { list-style:none; }
+    .initiative-list li { font-size:.83rem; color:var(--muted); padding:.25rem 0; display:flex; align-items:center; gap:.5rem; }
+    .initiative-list li::before { content:'✓'; color:var(--gold); font-weight:700; }
+
+    /* ── TEAM ── */
+    #team { background:var(--gray); }
+    .team-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.5rem; }
+    .team-card {
+      background:var(--white); border-radius:14px; padding:2rem;
+      text-align:center; border:1px solid #e8edf5; transition:all .3s;
+    }
+    .team-card:hover { transform:translateY(-3px); box-shadow:0 12px 32px rgba(10,22,40,0.1); border-color:var(--gold); }
+    .team-avatar {
+      width:72px; height:72px; border-radius:50%; margin:0 auto 1rem;
+      background:linear-gradient(135deg,var(--navy),var(--navy3));
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.5rem; font-weight:800; color:var(--gold);
+      border:3px solid var(--gold);
+    }
+    .team-name { font-size:1rem; font-weight:700; color:var(--navy); margin-bottom:.25rem; }
+    .team-role { font-size:.8rem; color:var(--gold); font-weight:600; margin-bottom:.5rem; }
+    .team-bio { font-size:.8rem; color:var(--muted); line-height:1.6; }
+
+    /* ── STATS BAND ── */
+    #stats {
+      background:var(--navy); padding:60px 5%;
+    }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:2rem; max-width:1100px; margin:0 auto; text-align:center; }
+    .stat-item {}
+    .stat-number { font-size:2.5rem; font-weight:900; color:var(--gold); }
+    .stat-label { font-size:.82rem; color:rgba(255,255,255,0.55); margin-top:.3rem; text-transform:uppercase; letter-spacing:.06em; }
+
+    /* ── CONTACT ── */
+    #contact { background:var(--white); }
+    .contact-grid { display:grid; grid-template-columns:1fr 1fr; gap:4rem; }
+    .contact-info h3 { font-size:1.2rem; font-weight:700; color:var(--navy); margin-bottom:1.5rem; }
+    .contact-item { display:flex; gap:1rem; margin-bottom:1.5rem; align-items:flex-start; }
+    .contact-icon {
+      width:44px; height:44px; background:rgba(201,168,76,0.1);
+      border-radius:10px; display:flex; align-items:center; justify-content:center;
+      font-size:1.1rem; flex-shrink:0;
+    }
+    .contact-item-title { font-size:.88rem; font-weight:700; color:var(--navy); margin-bottom:.2rem; }
+    .contact-item-text { font-size:.85rem; color:var(--muted); line-height:1.5; }
+    .contact-form { background:var(--gray); border-radius:16px; padding:2rem; }
+    .form-group { margin-bottom:1rem; }
+    .form-label { font-size:.8rem; font-weight:600; color:var(--navy); margin-bottom:.4rem; display:block; text-transform:uppercase; letter-spacing:.04em; }
+    .form-input {
+      width:100%; padding:.7rem 1rem; border:1.5px solid #e2e8f0;
+      border-radius:8px; font-size:.9rem; font-family:inherit;
+      background:var(--white); color:var(--text); transition:border-color .2s;
+      outline:none;
+    }
+    .form-input:focus { border-color:var(--gold); }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .btn-submit {
+      width:100%; padding:.85rem; background:var(--navy); color:var(--white);
+      border:none; border-radius:8px; font-size:.9rem; font-weight:700;
+      cursor:pointer; transition:all .2s; font-family:inherit;
+    }
+    .btn-submit:hover { background:var(--gold); color:var(--navy); }
+
+    /* ── CTA BAND ── */
+    #cta {
+      background:linear-gradient(135deg,var(--navy),var(--navy3));
+      padding:80px 5%; text-align:center;
+    }
+    .cta-title { font-size:clamp(1.8rem,3vw,2.5rem); font-weight:800; color:var(--white); margin-bottom:1rem; }
+    .cta-sub { font-size:1rem; color:rgba(255,255,255,0.6); margin-bottom:2rem; }
+    .cta-actions { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+
+    /* ── FOOTER ── */
+    footer {
+      background:var(--navy); color:rgba(255,255,255,0.5);
+      padding:60px 5% 30px;
+    }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:3rem; margin-bottom:3rem; }
+    .footer-brand { }
+    .footer-logo { font-size:1.3rem; font-weight:800; color:var(--white); margin-bottom:.75rem; }
+    .footer-logo span { color:var(--gold); }
+    .footer-desc { font-size:.85rem; line-height:1.7; max-width:260px; }
+    .footer-col h4 { font-size:.88rem; font-weight:700; color:var(--white); margin-bottom:1rem; text-transform:uppercase; letter-spacing:.06em; }
+    .footer-col a { display:block; font-size:.83rem; color:rgba(255,255,255,0.5); margin-bottom:.5rem; transition:color .2s; }
+    .footer-col a:hover { color:var(--gold); }
+    .footer-divider { height:1px; background:rgba(255,255,255,0.08); margin-bottom:1.5rem; }
+    .footer-bottom { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; }
+    .footer-copy { font-size:.8rem; }
+    .footer-links { display:flex; gap:1.5rem; }
+    .footer-links a { font-size:.8rem; color:rgba(255,255,255,0.4); transition:color .2s; }
+    .footer-links a:hover { color:var(--gold); }
+
+    /* ── MOBILE NAV ── */
+    .mobile-menu {
+      display:none; position:fixed; top:70px; left:0; right:0; bottom:0;
+      background:var(--navy); z-index:998; flex-direction:column;
+      padding:2rem 5%; gap:1.5rem; overflow-y:auto;
+    }
+    .mobile-menu.open { display:flex; }
+    .mobile-menu a { color:var(--white); font-size:1.1rem; font-weight:600; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:1rem; }
+    .mobile-menu a:hover { color:var(--gold); }
+    .mobile-actions { display:flex; flex-direction:column; gap:.75rem; margin-top:1rem; }
+
+    /* ── TOAST ── */
+    .toast {
+      position:fixed; bottom:2rem; right:2rem; background:var(--navy);
+      color:var(--white); padding:1rem 1.5rem; border-radius:10px;
+      border-left:4px solid var(--gold); font-size:.9rem; font-weight:500;
+      z-index:9999; transform:translateY(100px); opacity:0;
+      transition:all .4s cubic-bezier(.34,1.56,.64,1); pointer-events:none;
+    }
+    .toast.show { transform:translateY(0); opacity:1; }
+
+    @media (max-width:768px) {
+      .nav-links, .nav-actions { display:none; }
+      .hamburger { display:flex; }
+      .about-grid, .contact-grid, .footer-grid { grid-template-columns:1fr; }
+      .form-row { grid-template-columns:1fr; }
+      .footer-grid { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVBAR ── -->
+<nav id="navbar">
+  <a href="#home" class="nav-logo">
+    <div class="nav-logo-icon">T</div>
+    <span class="nav-logo-text">Talent<span>Exam</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="#home">Home</a>
+    <a href="#about">About</a>
+    <a href="#services">Services</a>
+    <a href="#exams">Exams</a>
+    <a href="#initiatives">Initiatives</a>
+    <a href="#team">Team</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <div class="nav-actions">
+    <button class="btn-outline" onclick="goToLogin()">Login</button>
+    <button class="btn-gold" onclick="goToSignup()">Sign Up</button>
+  </div>
+  <div class="hamburger" onclick="toggleMenu()" id="hamburger">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
+
+<!-- ── MOBILE MENU ── -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#home" onclick="closeMenu()">Home</a>
+  <a href="#about" onclick="closeMenu()">About</a>
+  <a href="#services" onclick="closeMenu()">Services</a>
+  <a href="#exams" onclick="closeMenu()">Exams</a>
+  <a href="#initiatives" onclick="closeMenu()">Initiatives</a>
+  <a href="#team" onclick="closeMenu()">Team</a>
+  <a href="#contact" onclick="closeMenu()">Contact</a>
+  <div class="mobile-actions">
+    <button class="btn-outline" onclick="goToLogin()">Login</button>
+    <button class="btn-gold" onclick="goToSignup()">Sign Up</button>
+  </div>
+</div>
+
+<!-- ── HERO ── -->
+<section id="home">
+  <div class="hero-bg-circle" style="width:500px;height:500px;top:-150px;right:-150px;"></div>
+  <div class="hero-bg-circle" style="width:300px;height:300px;bottom:-100px;left:-80px;"></div>
+  <div class="hero-content">
+    <div class="hero-badge">🏆 India's Premier Competitive Examination Platform</div>
+    <h1 class="hero-title">Empowering Talent.<br/>Defining <span>Excellence.</span></h1>
+    <p class="hero-sub">TalentExam conducts world-class competitive examinations, connecting aspirants with opportunities across education, government, and professional sectors.</p>
+    <div class="hero-actions">
+      <button class="btn-hero-primary" onclick="goToSignup()">Register Now →</button>
+      <button class="btn-hero-secondary" onclick="document.getElementById('exams').scrollIntoView({behavior:'smooth'})">View Upcoming Exams</button>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-number">50,000+</div>
+        <div class="hero-stat-label">Registered Students</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number">120+</div>
+        <div class="hero-stat-label">Exams Conducted</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number">98.5%</div>
+        <div class="hero-stat-label">Accuracy Rate</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number">25+</div>
+        <div class="hero-stat-label">Partner Institutions</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ABOUT ── -->
+<section id="about">
+  <div class="container">
+    <div class="about-grid">
+      <div class="about-visual">
+        <div class="about-quote">Talent is universal; opportunity should be too. We build the bridge.</div>
+        <div class="about-author">— TalentExam Founding Charter, 2024</div>
+      </div>
+      <div class="about-text">
+        <div class="section-badge">📖 About Us</div>
+        <h2 class="section-title">Who We <span>Are</span></h2>
+        <p>TalentExam is a technology-driven examination and assessment organisation founded with the mission of democratising access to quality evaluation systems. We believe every talented individual deserves a fair, transparent, and credible platform to demonstrate their capabilities.</p>
+        <p>Headquartered in India with a vision to expand globally, TalentExam conducts competitive examinations for educational institutions, government bodies, and corporate organisations. Our platform is built on the principles of integrity, inclusivity, and innovation.</p>
+        <p>Beyond examinations, TalentExam is building an ecosystem that includes healthcare initiatives and social welfare programmes — because we recognise that talent flourishes only when individuals have access to health, education, and opportunity.</p>
+        <div class="about-values">
+          <div class="about-value">
+            <div class="about-value-title">🎯 Our Mission</div>
+            <div class="about-value-text">Provide fair, transparent, and scalable examination solutions to every aspirant across India.</div>
+          </div>
+          <div class="about-value">
+            <div class="about-value-title">🔭 Our Vision</div>
+            <div class="about-value-text">Become India's most trusted examination authority, expanding into global markets by 2030.</div>
+          </div>
+          <div class="about-value">
+            <div class="about-value-title">⚖️ Integrity</div>
+            <div class="about-value-text">Every examination is conducted with the highest standards of fairness and security.</div>
+          </div>
+          <div class="about-value">
+            <div class="about-value-title">🌍 Inclusivity</div>
+            <div class="about-value-text">Accessible to students from all backgrounds, geographies, and economic conditions.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SERVICES ── -->
+<section id="services">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-badge">⚡ What We Do</div>
+      <h2 class="section-title">Our <span>Services</span></h2>
+      <p class="section-sub">From competitive examinations to institutional assessments, TalentExam delivers end-to-end solutions tailored to your needs.</p>
+    </div>
+    <div class="services-grid">
+      <div class="service-card">
+        <div class="service-icon">📝</div>
+        <div class="service-title">Online Competitive Exams</div>
+        <div class="service-text">Conduct large-scale MCQ-based competitive examinations with real-time evaluation, automated ranking, and instant result publication for thousands of candidates simultaneously.</div>
+        <span class="service-tag">Core Service</span>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🏛️</div>
+        <div class="service-title">Government Exam Partnerships</div>
+        <div class="service-text">We are working toward partnerships with state and central government bodies to conduct recruitment and entrance examinations with the highest standards of security and integrity.</div>
+        <span class="service-tag">Coming Soon</span>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🏫</div>
+        <div class="service-title">Institutional Assessment</div>
+        <div class="service-text">Custom examination solutions for colleges, universities, and training institutes. Configure question banks, sections, time limits, and result analytics tailored to your curriculum.</div>
+        <span class="service-tag">Available</span>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">💼</div>
+        <div class="service-title">Corporate Recruitment Testing</div>
+        <div class="service-text">Partner with TalentExam to screen and evaluate job candidates through standardised aptitude, reasoning, and domain-specific assessments with detailed performance reports.</div>
+        <span class="service-tag">Available</span>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">📊</div>
+        <div class="service-title">Performance Analytics</div>
+        <div class="service-text">Advanced analytics dashboards providing section-wise performance breakdown, percentile ranking, leaderboard comparisons, and historical trend analysis for every candidate.</div>
+        <span class="service-tag">Core Service</span>
+      </div>
+      <div class="service-card">
+        <div class="service-icon">🔒</div>
+        <div class="service-title">Secure Proctoring</div>
+        <div class="service-text">AI-powered proctoring with tab-switch detection, webcam monitoring, and behavioural analysis ensures examination integrity for all online assessments.</div>
+        <span class="service-tag">In Development</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── EXAMS ── -->
+<section id="exams">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-badge">🗓️ Upcoming Exams</div>
+      <h2 class="section-title">Examination <span>Schedule</span></h2>
+      <p class="section-sub">Register for upcoming examinations conducted by TalentExam. Secure your seat early — registrations close 7 days before the examination date.</p>
+    </div>
+    <div class="exams-grid">
+      <div class="exam-card">
+        <div class="exam-card-header">
+          <div class="exam-card-badge">Open Now</div>
+          <div class="exam-card-title">TalentExam National 2025</div>
+          <div class="exam-card-sub">All India Competitive Examination</div>
+        </div>
+        <div class="exam-card-body">
+          <div class="exam-detail"><span class="exam-detail-label">Exam Date</span><span class="exam-detail-value">15 August 2025</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Registration Ends</span><span class="exam-detail-value">8 August 2025</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Duration</span><span class="exam-detail-value">60 Minutes</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Questions</span><span class="exam-detail-value">50 MCQ</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Fee</span><span class="exam-detail-value">₹499</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Status</span><span class="status-open">● Registrations Open</span></div>
+        </div>
+        <div class="exam-card-footer">
+          <button class="btn-exam" onclick="goToSignup()">Register Now →</button>
+        </div>
+      </div>
+      <div class="exam-card">
+        <div class="exam-card-header">
+          <div class="exam-card-badge">Upcoming</div>
+          <div class="exam-card-title">TalentExam State Series</div>
+          <div class="exam-card-sub">State-Level Competitive Exam</div>
+        </div>
+        <div class="exam-card-body">
+          <div class="exam-detail"><span class="exam-detail-label">Exam Date</span><span class="exam-detail-value">12 October 2025</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Registration Ends</span><span class="exam-detail-value">5 October 2025</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Duration</span><span class="exam-detail-value">90 Minutes</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Questions</span><span class="exam-detail-value">75 MCQ</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Fee</span><span class="exam-detail-value">₹299</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Status</span><span class="status-upcoming">● Opening Soon</span></div>
+        </div>
+        <div class="exam-card-footer">
+          <button class="btn-exam" onclick="showToast('Registrations open on 1 September 2025')">Set Reminder</button>
+        </div>
+      </div>
+      <div class="exam-card">
+        <div class="exam-card-header">
+          <div class="exam-card-badge">Upcoming</div>
+          <div class="exam-card-title">TalentExam Tech Challenge</div>
+          <div class="exam-card-sub">Engineering & Technical Assessment</div>
+        </div>
+        <div class="exam-card-body">
+          <div class="exam-detail"><span class="exam-detail-label">Exam Date</span><span class="exam-detail-value">20 November 2025</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Registration Ends</span><span class="exam-detail-value">13 November 2025</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Duration</span><span class="exam-detail-value">120 Minutes</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Questions</span><span class="exam-detail-value">100 MCQ</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Fee</span><span class="exam-detail-value">₹599</span></div>
+          <div class="exam-detail"><span class="exam-detail-label">Status</span><span class="status-upcoming">● Opening Soon</span></div>
+        </div>
+        <div class="exam-card-footer">
+          <button class="btn-exam" onclick="showToast('Registrations open on 1 November 2025')">Set Reminder</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── MISSION BAND ── -->
+<section id="mission">
+  <div class="container">
+    <div class="section-badge" style="background:rgba(201,168,76,0.15);">🌟 Our Purpose</div>
+    <h2 class="section-title">Driven by a <span>Greater Mission</span></h2>
+    <p class="section-sub" style="color:rgba(255,255,255,0.6);margin-left:auto;margin-right:auto;text-align:center;">TalentExam was built on the belief that merit should be the only criterion for opportunity. We are committed to building systems that are fair, transparent, and accessible to all.</p>
+    <div class="mission-grid">
+      <div class="mission-card">
+        <div class="mission-icon">🎓</div>
+        <div class="mission-title">Education First</div>
+        <div class="mission-text">Partner with educational institutions to standardise assessments and provide credible certifications recognised across India.</div>
+      </div>
+      <div class="mission-card">
+        <div class="mission-icon">⚖️</div>
+        <div class="mission-title">Fair Evaluation</div>
+        <div class="mission-text">Eliminate bias and subjectivity through technology-driven, standardised examination systems accessible to every aspirant.</div>
+      </div>
+      <div class="mission-card">
+        <div class="mission-icon">🌐</div>
+        <div class="mission-title">National Reach</div>
+        <div class="mission-text">Reach students in every district of India through our online platform, removing geographic and logistic barriers.</div>
+      </div>
+      <div class="mission-card">
+        <div class="mission-icon">🤝</div>
+        <div class="mission-title">Community Impact</div>
+        <div class="mission-text">Give back through NGO programmes, scholarships, and healthcare initiatives that uplift communities beyond examinations.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── INITIATIVES ── -->
+<section id="initiatives">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-badge">🌱 Future Initiatives</div>
+      <h2 class="section-title">Beyond <span>Examinations</span></h2>
+      <p class="section-sub">TalentExam is building a complete ecosystem — combining education, healthcare, and social welfare under one organisation committed to national development.</p>
+    </div>
+    <div class="initiatives-grid">
+      <div class="initiative-card">
+        <div class="initiative-header exam">
+          <div class="initiative-icon">📋</div>
+          <div class="initiative-title">Examination Division</div>
+          <div class="initiative-sub">Core Business · Active</div>
+        </div>
+        <div class="initiative-body">
+          <p class="initiative-text">Our primary division conducts online and offline competitive examinations for students, institutions, and government bodies across India.</p>
+          <ul class="initiative-list">
+            <li>Online MCQ-based examinations</li>
+            <li>Automated evaluation & ranking</li>
+            <li>AI proctoring (in development)</li>
+            <li>Government exam partnerships (planned)</li>
+            <li>National certification programmes</li>
+          </ul>
+        </div>
+      </div>
+      <div class="initiative-card">
+        <div class="initiative-header health">
+          <div class="initiative-icon">🏥</div>
+          <div class="initiative-title">TalentCare Hospitals</div>
+          <div class="initiative-sub">Healthcare Division · Planned 2027</div>
+        </div>
+        <div class="initiative-body">
+          <p class="initiative-text">We plan to establish affordable healthcare facilities in underserved regions, ensuring that talent can flourish only when health is not a barrier.</p>
+          <ul class="initiative-list">
+            <li>Affordable primary healthcare centres</li>
+            <li>Free health camps for students</li>
+            <li>Mental health & wellness programmes</li>
+            <li>Medical scholarship for toppers</li>
+            <li>Rural health outreach</li>
+          </ul>
+        </div>
+      </div>
+      <div class="initiative-card">
+        <div class="initiative-header ngo">
+          <div class="initiative-icon">🤝</div>
+          <div class="initiative-title">TalentCare NGO</div>
+          <div class="initiative-sub">Social Welfare · Planned 2026</div>
+        </div>
+        <div class="initiative-body">
+          <p class="initiative-text">Our NGO arm will focus on education access, women empowerment, and rural development — creating a complete cycle of opportunity for India's underprivileged.</p>
+          <ul class="initiative-list">
+            <li>Free coaching for underprivileged students</li>
+            <li>Scholarship & financial aid programmes</li>
+            <li>Women leadership initiatives</li>
+            <li>Digital literacy in rural areas</li>
+            <li>Community development projects</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS BAND ── -->
+<div id="stats">
+  <div class="stats-grid">
+    <div class="stat-item">
+      <div class="stat-number">50,000+</div>
+      <div class="stat-label">Students Registered</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">120+</div>
+      <div class="stat-label">Exams Conducted</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">98.5%</div>
+      <div class="stat-label">Accuracy Rate</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">25+</div>
+      <div class="stat-label">Partner Institutions</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">15</div>
+      <div class="stat-label">States Covered</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TEAM ── -->
+<section id="team">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-badge">👥 Leadership</div>
+      <h2 class="section-title">Meet Our <span>Team</span></h2>
+      <p class="section-sub">The passionate individuals behind TalentExam, committed to transforming the examination landscape in India.</p>
+    </div>
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="team-avatar">PB</div>
+        <div class="team-name">Prashant Banjare</div>
+        <div class="team-role">Founder & CEO</div>
+        <div class="team-bio">Visionary leader driving TalentExam's mission to democratise competitive examinations across India.</div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">TL</div>
+        <div class="team-name">[Tech Lead]</div>
+        <div class="team-role">Chief Technology Officer</div>
+        <div class="team-bio">Full-stack architect responsible for the TalentExam platform's security, scalability, and performance.</div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">OD</div>
+        <div class="team-name">[Ops Director]</div>
+        <div class="team-role">Chief Operations Officer</div>
+        <div class="team-bio">Oversees examination operations, institutional partnerships, and quality assurance across all programmes.</div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">AM</div>
+        <div class="team-name">[Academic Head]</div>
+        <div class="team-role">Head of Academics</div>
+        <div class="team-bio">Curates examination content, maintains question bank quality, and ensures academic integrity.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CONTACT ── -->
+<section id="contact">
+  <div class="container">
+    <div class="text-center">
+      <div class="section-badge">📬 Get In Touch</div>
+      <h2 class="section-title">Contact <span>Us</span></h2>
+      <p class="section-sub">Have questions about our examinations, partnerships, or initiatives? We'd love to hear from you.</p>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-info">
+        <h3>Reach Out To Us</h3>
+        <div class="contact-item">
+          <div class="contact-icon">📍</div>
+          <div>
+            <div class="contact-item-title">Head Office</div>
+            <div class="contact-item-text">TalentExam Pvt. Ltd.<br/>Gwalior, Madhya Pradesh — 474001<br/>India</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">📧</div>
+          <div>
+            <div class="contact-item-title">Email</div>
+            <div class="contact-item-text">info@talentexam.in<br/>support@talentexam.in</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">📞</div>
+          <div>
+            <div class="contact-item-title">Phone</div>
+            <div class="contact-item-text">+91 98765 43210<br/>Mon–Sat, 9 AM – 6 PM IST</div>
+          </div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-icon">🕐</div>
+          <div>
+            <div class="contact-item-title">Support Hours</div>
+            <div class="contact-item-text">Monday to Saturday<br/>9:00 AM – 6:00 PM IST</div>
+          </div>
+        </div>
+      </div>
+      <div class="contact-form">
+        <h3 style="font-size:1.1rem;font-weight:700;color:var(--navy);margin-bottom:1.5rem;">Send Us a Message</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" class="form-input" placeholder="Prashant" id="fname"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" class="form-input" placeholder="Banjare" id="lname"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" class="form-input" placeholder="you@email.com" id="cemail"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subject</label>
+          <select class="form-input" id="csubject">
+            <option value="">Select a subject</option>
+            <option>Examination Registration</option>
+            <option>Institutional Partnership</option>
+            <option>Corporate Assessment</option>
+            <option>NGO / Healthcare Initiative</option>
+            <option>Technical Support</option>
+            <option>General Enquiry</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea class="form-input" rows="4" placeholder="Tell us how we can help you..." id="cmessage" style="resize:vertical;"></textarea>
+        </div>
+        <button class="btn-submit" onclick="submitContact()">Send Message →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA BAND ── -->
+<section id="cta">
+  <div class="container">
+    <h2 class="cta-title">Ready to Showcase Your Talent?</h2>
+    <p class="cta-sub">Join 50,000+ students who have already registered on TalentExam. Your next opportunity starts here.</p>
+    <div class="cta-actions">
+      <button class="btn-hero-primary" onclick="goToSignup()">Create Free Account →</button>
+      <button class="btn-hero-secondary" onclick="document.getElementById('exams').scrollIntoView({behavior:'smooth'})">View All Exams</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">Talent<span>Exam</span></div>
+        <p class="footer-desc">India's premier online competitive examination platform. Empowering talent, defining excellence, building futures.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <a href="#home">Home</a>
+        <a href="#about">About Us</a>
+        <a href="#services">Services</a>
+        <a href="#exams">Examinations</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Examinations</h4>
+        <a href="#exams">TalentExam National</a>
+        <a href="#exams">State Series</a>
+        <a href="#exams">Tech Challenge</a>
+        <a href="#exams">View Schedule</a>
+      </div>
+      <div class="footer-col">
+        <h4>Student Portal</h4>
+        <a href="#" onclick="goToLogin()">Login</a>
+        <a href="#" onclick="goToSignup()">Register</a>
+        <a href="#" onclick="goToLogin()">My Dashboard</a>
+        <a href="#" onclick="goToLogin()">My Results</a>
+        <a href="#contact">Support</a>
+      </div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2025 TalentExam Pvt. Ltd. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Use</a>
+        <a href="#">Refund Policy</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Portal URL — change this to your deployed React app URL later ──
+  const PORTAL_URL = "http://localhost:5173";
+
+  function goToLogin()  { window.open(PORTAL_URL + "/login",  "_blank"); }
+  function goToSignup() { window.open(PORTAL_URL + "/signup", "_blank"); }
+
+  // Mobile menu
+  function toggleMenu() {
+    const m = document.getElementById("mobileMenu");
+    m.classList.toggle("open");
+  }
+  function closeMenu() {
+    document.getElementById("mobileMenu").classList.remove("open");
+  }
+
+  // Toast notification
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3500);
+  }
+
+  // Contact form
+  function submitContact() {
+    const fname = document.getElementById("fname").value.trim();
+    const email = document.getElementById("cemail").value.trim();
+    const subject = document.getElementById("csubject").value;
+    const message = document.getElementById("cmessage").value.trim();
+    if (!fname || !email || !subject || !message) {
+      showToast("Please fill in all required fields.");
+      return;
+    }
+    showToast("✅ Message sent! We'll get back to you within 24 hours.");
+    document.getElementById("fname").value = "";
+    document.getElementById("lname").value = "";
+    document.getElementById("cemail").value = "";
+    document.getElementById("csubject").value = "";
+    document.getElementById("cmessage").value = "";
+  }
+
+  // Navbar scroll effect
+  window.addEventListener("scroll", () => {
+    const nav = document.getElementById("navbar");
+    if (window.scrollY > 50) {
+      nav.style.background = "rgba(10,22,40,0.99)";
+      nav.style.boxShadow = "0 2px 20px rgba(0,0,0,0.3)";
+    } else {
+      nav.style.background = "rgba(10,22,40,0.97)";
+      nav.style.boxShadow = "none";
+    }
+  });
+
+  // Active nav link highlight
+  const sections = document.querySelectorAll("section[id], div[id='stats']");
+  const navLinks = document.querySelectorAll(".nav-links a");
+  window.addEventListener("scroll", () => {
+    let current = "";
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 100) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute("href") === "#" + current
+        ? "var(--gold)" : "rgba(255,255,255,0.75)";
+    });
+  });
+</script>
+</body>
+</html>
