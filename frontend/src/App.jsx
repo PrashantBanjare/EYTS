@@ -13,6 +13,7 @@ import Profile from "./pages/Profile"
 import ForgotPassword from "./pages/ForgotPassword"
 import Employee from "./pages/Employee"
 import EmployeeProfile from "./pages/EmployeeProfile"
+import ParentalConsent from "./pages/ParentalConsent"
 
 function App() {
   return (
@@ -25,6 +26,10 @@ function App() {
         <Route path="/employee" element={<ProtectedRoute><Employee /></ProtectedRoute>} />
         <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
         <Route path="/exam" element={<ProtectedRoute><Exam /></ProtectedRoute>} />
+        {/* Consent is collected before the exam, so it needs a login but
+            not a payment or an attempt. Exam.jsx redirects here when the
+            server refuses to start a minor's camera-monitored sitting. */}
+        <Route path="/parental-consent" element={<ProtectedRoute><ParentalConsent /></ProtectedRoute>} />
         <Route path="/result/:attemptId" element={<ProtectedRoute><Result /></ProtectedRoute>} />
         <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />

@@ -47,6 +47,11 @@ model User {
   taskDeadline    DateTime?
   taskTarget      Int?                    // null = use the global target
 
+  // ── proctoring, per student ──
+  // null = follow the exam's global setting. Set only when the office
+  // needs to treat one candidate differently from everyone else.
+  proctoringOverride ProctoringMode?
+  consentWaived      Boolean       @default(false)
 
   // ── who recruited this student ──
   referredById    String?
@@ -69,6 +74,7 @@ model User {
   commissions     Commission[]  @relation("EmployeeCommissions")
   payouts         Payout[]
   notifications   Notification[]
+  parentalConsent ParentalConsent?
 
   @@index([referredById])
   @@index([role])
@@ -78,6 +84,20 @@ enum Role {
   STUDENT
   EMPLOYEE
   ADMIN
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PROCTORING LEVELS
+//  OFF            nothing is watched
+//  BROWSER_ONLY   tab switches, fullscreen exits, copy/paste — no camera
+//  FACE_DETECTION camera on, flags only, no images kept
+//  FULL_RECORDING camera on, periodic snapshots stored
+// ═══════════════════════════════════════════════════════════════
+enum ProctoringMode {
+  OFF
+  BROWSER_ONLY
+  FACE_DETECTION
+  FULL_RECORDING
 }
 
 model Exam {
@@ -92,6 +112,13 @@ model Exam {
   answerKeyReleaseAt  DateTime?     // null = key hidden even after results
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
+
+  // ── proctoring, exam-wide default ──
+  // requireParentalConsent applies only to candidates under 18. Leaving it
+  // on is the safe default under the DPDP Act; turning it off is a
+  // deliberate decision the office has to make.
+  proctoringMode         ProctoringMode @default(OFF)
+  requireParentalConsent Boolean        @default(true)
 
   sections            Section[]
   attempts            ExamAttempt[]
@@ -165,10 +192,18 @@ model ExamAttempt {
   timeTaken   Int?            // seconds
   isSubmitted Boolean         @default(false)
 
+  // Which mode was actually in force for this sitting. Recorded on the
+  // attempt so a later change to the exam settings cannot rewrite what
+  // a candidate was told at the time.
+  proctoringMode ProctoringMode @default(OFF)
+
   user        User            @relation(fields: [userId], references: [id])
   exam        Exam            @relation(fields: [examId], references: [id])
   answers     AttemptAnswer[]
   result      Result?
+
+  proctoringEvents    ProctoringEvent[]
+  proctoringSnapshots ProctoringSnapshot[]
 }
 
 model AttemptAnswer {
@@ -209,6 +244,77 @@ model Coupon {
   usedCount   Int      @default(0)
   maxUses     Int?     // null = unlimited
   createdAt   DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PARENTAL CONSENT
+//  Required before a candidate under 18 can sit an exam with the
+//  camera on. The parent verifies by OTP sent to their own email;
+//  the student cannot self-approve.
+//
+//  ipAddress and verifiedAt exist so the consent can be evidenced
+//  later if a parent ever disputes having given it.
+// ═══════════════════════════════════════════════════════════════
+model ParentalConsent {
+  id           String    @id @default(uuid())
+  studentId    String    @unique
+  parentName   String
+  parentEmail  String
+  parentPhone  String
+  relationship String?   // Father | Mother | Guardian
+  otp          String?
+  otpExpiry    DateTime?
+  verified     Boolean   @default(false)
+  verifiedAt   DateTime?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+
+  student      User      @relation(fields: [studentId], references: [id])
+
+  @@index([verified])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PROCTORING EVENTS
+//  One row per incident. eventType is a free string rather than an
+//  enum so a new detector can be added without a migration.
+//
+//    TAB_SWITCH, WINDOW_BLUR, FULLSCREEN_EXIT, COPY, PASTE,
+//    RIGHT_CLICK, DEVTOOLS, FACE_ABSENT, MULTIPLE_FACES,
+//    LOOKING_AWAY, CAMERA_BLOCKED, CAMERA_ERROR
+// ═══════════════════════════════════════════════════════════════
+model ProctoringEvent {
+  id         String      @id @default(uuid())
+  attemptId  String
+  eventType  String
+  severity   String      @default("LOW")   // LOW | MEDIUM | HIGH
+  metadata   Json?
+  occurredAt DateTime    @default(now())
+
+  attempt    ExamAttempt @relation(fields: [attemptId], references: [id])
+
+  @@index([attemptId])
+  @@index([eventType])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PROCTORING SNAPSHOTS
+//  Only written in FULL_RECORDING mode. imageData holds a base64
+//  JPEG; move this to object storage before any real volume, a
+//  database is the wrong place for images at scale.
+// ═══════════════════════════════════════════════════════════════
+model ProctoringSnapshot {
+  id         String      @id @default(uuid())
+  attemptId  String
+  imageData  String      @db.Text
+  capturedAt DateTime    @default(now())
+  flagged    Boolean     @default(false)
+  flagReason String?
+
+  attempt    ExamAttempt @relation(fields: [attemptId], references: [id])
+
+  @@index([attemptId])
+  @@index([flagged])
 }
 
 // ═══════════════════════════════════════════════════════════════

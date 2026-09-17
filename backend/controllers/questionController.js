@@ -420,11 +420,51 @@ const deleteSection = async (req, res) => {
   }
 }
 
+// PATCH /api/exams/sections/:id
+const renameSection = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name } = req.body
+    if (!name) return res.status(400).json({ message: "Name is required" })
+    const section = await prisma.section.update({ where: { id }, data: { name } })
+    res.status(200).json({ message: "Section renamed", section })
+  } catch (error) {
+    console.error("renameSection error:", error)
+    res.status(500).json({ message: "Something went wrong" })
+  }
+}
+
+// PATCH /api/exams/questions/:id
+const editQuestion = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { text, explanation, options } = req.body
+    await prisma.question.update({ where: { id }, data: { text, explanation } })
+    if (options) {
+      for (const opt of options) {
+        await prisma.questionOption.updateMany({
+          where: { questionId: id, key: opt.key },
+          data: { text: opt.text, isCorrect: opt.isCorrect }
+        })
+      }
+    }
+    const updated = await prisma.question.findUnique({
+      where: { id }, include: { options: true }
+    })
+    res.status(200).json({ message: "Question updated", question: updated })
+  } catch (error) {
+    console.error("editQuestion error:", error)
+    res.status(500).json({ message: "Something went wrong" })
+  }
+}
+
 module.exports = {
   addQuestion,
   updateQuestion,
+  renameSection,
   deleteQuestion,
   addSection,
   updateSection,
   deleteSection,
+  editQuestion
 }

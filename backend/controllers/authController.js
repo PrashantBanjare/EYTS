@@ -351,4 +351,72 @@ const resetPassword = async (req, res) => {
   }
 }
 
-module.exports = { signup, login, getMe, getStudents, updateProfile, forgotPassword, verifyOtp, resetPassword }
+// POST /api/auth/send-registration-otp
+const sendRegistrationOtp = async (req, res) => {
+  try {
+    const { email } = req.body
+    if (!email) return res.status(400).json({ message: "Email is required" })
+
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) return res.status(409).json({ message: "Email already registered" })
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString()
+    const expiry = new Date(Date.now() + 10 * 60 * 1000)
+
+    global.pendingRegistrationOtps = global.pendingRegistrationOtps || {}
+    global.pendingRegistrationOtps[email] = { otp, expiry, verified: false }
+
+    await sendEmail({
+      to: email,
+      subject: "TalentExam — Verify Your Email",
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+          <div style="background:#000;color:#fff;padding:20px;border-radius:12px 12px 0 0;text-align:center;">
+            <h1 style="margin:0;font-size:20px;">Email Verification</h1>
+          </div>
+          <div style="background:#f9f9f9;padding:24px;border-radius:0 0 12px 12px;">
+            <p>Use the OTP below to verify your email and complete registration.</p>
+            <div style="background:#fff;padding:20px;border-radius:10px;text-align:center;margin:20px 0;">
+              <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#000;">${otp}</span>
+            </div>
+            <p style="font-size:13px;color:#999;">This OTP expires in 10 minutes. Do not share it with anyone.</p>
+            <p style="font-size:13px;color:#999;">— TalentExam Team</p>
+          </div>
+        </div>
+      `
+    })
+
+    res.status(200).json({ message: "OTP sent to your email" })
+  } catch (error) {
+    console.error("sendRegistrationOtp error:", error)
+    res.status(500).json({ message: "Something went wrong" })
+  }
+}
+
+// POST /api/auth/verify-registration-otp
+const verifyRegistrationOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body
+    if (!email || !otp) return res.status(400).json({ message: "Email and OTP required" })
+
+    const pending = global.pendingRegistrationOtps?.[email]
+    if (!pending) return res.status(400).json({ message: "No OTP found. Please request a new one." })
+
+    if (new Date() > pending.expiry) {
+      delete global.pendingRegistrationOtps[email]
+      return res.status(400).json({ message: "OTP has expired. Please request a new one." })
+    }
+
+    if (pending.otp !== otp) return res.status(400).json({ message: "Incorrect OTP" })
+
+    global.pendingRegistrationOtps[email].verified = true
+
+    res.status(200).json({ message: "Email verified successfully" })
+  } catch (error) {
+    console.error("verifyRegistrationOtp error:", error)
+    res.status(500).json({ message: "Something went wrong" })
+  }
+}
+
+
+module.exports = { signup, login, getMe, getStudents, updateProfile, forgotPassword, verifyOtp, resetPassword, sendRegistrationOtp, verifyRegistrationOtp }

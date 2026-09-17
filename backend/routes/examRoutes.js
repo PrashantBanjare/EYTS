@@ -14,7 +14,6 @@ const { protect, adminOnly } = require("../middleware/authMiddleware")
 
 // ── Student ───────────────────────────────────────────────────────
 // Note: getActiveExam deliberately withholds isCorrect and explanation.
-// See the comment in examController before changing its select.
 router.get("/active", protect, getActiveExam)
 
 // ── Admin: exams ──────────────────────────────────────────────────

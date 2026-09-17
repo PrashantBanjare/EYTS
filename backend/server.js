@@ -11,6 +11,7 @@ const attemptRoutes = require("./routes/attemptRoutes")
 const employeeRoutes = require("./routes/employeeRoutes")
 const bulkRoutes = require("./routes/bulkRoutes")
 const webhookRoutes = require("./routes/webhookRoutes")
+const proctoringRoutes = require("./routes/proctoringRoutes")
 
 const app = express()
 
@@ -37,6 +38,11 @@ app.use(morgan("dev"))
 app.use("/api/webhooks", webhookRoutes)
 
 // ============ BODY PARSERS ============
+//
+// The limit is 10mb because proctoring snapshots arrive as base64 JPEGs
+// on /api/proctoring/snapshot. A 640x480 frame is roughly 60–120 KB
+// encoded; the controller rejects anything over ~700 KB, so this ceiling
+// is headroom, not an invitation.
 app.use(express.json({ limit: "10mb" }))
 app.use(express.urlencoded({ limit: "10mb", extended: true }))
 
@@ -47,6 +53,7 @@ app.use("/api/payments", paymentRoutes)
 app.use("/api/attempts", attemptRoutes)
 app.use("/api/employees", employeeRoutes)
 app.use("/api/bulk", bulkRoutes)
+app.use("/api/proctoring", proctoringRoutes)
 
 // ============ HEALTH CHECK ============
 app.get("/", (req, res) => {
@@ -98,7 +105,8 @@ app.listen(PORT, () => {
   console.log(`🗄️  Database: ${process.env.DATABASE_URL ? "Connected" : "Not configured"}`)
   console.log(`🔔 Razorpay webhook: ${
     process.env.RAZORPAY_WEBHOOK_SECRET ? "configured" : "NOT configured — set RAZORPAY_WEBHOOK_SECRET"
-  }\n`)
+  }`)
+  console.log(`👁️  Proctoring: enabled at /api/proctoring\n`)
 })
 
 module.exports = app

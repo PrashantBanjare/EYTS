@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import api from "../services/api"
+import api, { proctoringService } from "../services/api"
 import { AdminEmployees, AdminPayouts, AdminReferralCodes } from "./AdminEmployees"
 import { AdminExamManager } from "./AdminExamManager"
+
+const MODE_LABEL = {
+  OFF: "Not monitored",
+  BROWSER_ONLY: "Activity only",
+  FACE_DETECTION: "Camera, no images kept",
+  FULL_RECORDING: "Camera, images stored",
+}
 
 function Admin() {
   const { user, logout } = useAuth()
@@ -32,6 +39,27 @@ function Admin() {
   })
   const [qSuccess, setQSuccess] = useState("")
   const [qError, setQError] = useState("")
+
+  // ── question editing ──
+  const [editingQ, setEditingQ] = useState(null)
+
+  // ── section editing ──
+  const [editingSection, setEditingSection] = useState(null)
+  const [editingSectionName, setEditingSectionName] = useState("")
+
+  // ── refund ──
+  const [refundModal, setRefundModal] = useState(null)
+  const [refundReason, setRefundReason] = useState("")
+  const [refundNote, setRefundNote] = useState("")
+  const [refundLoading, setRefundLoading] = useState(false)
+
+  // ── proctoring ──
+  const [flagged, setFlagged] = useState([])
+  const [consents, setConsents] = useState([])
+  const [report, setReport] = useState(null)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [snapshotView, setSnapshotView] = useState(null)
+  const [studentProctoring, setStudentProctoring] = useState(null)
 
   // Exam id comes from the database, not a hardcoded constant, so this
   // panel keeps working if the exam is recreated.
@@ -64,12 +92,24 @@ function Admin() {
       setPayments(payRes.data.payments || [])
       setCoupons(couponRes.data.coupons || [])
 
+      // Proctoring data is fetched separately: a failure here must not
+      // take down the whole panel.
+      try {
+        const [flagRes, consentRes] = await Promise.all([
+          proctoringService.getFlagged(),
+          proctoringService.getAllConsents(),
+        ])
+        setFlagged(flagRes.data.attempts || [])
+        setConsents(consentRes.data.consents || [])
+      } catch (err) {
+        console.error("proctoring fetch error:", err)
+      }
+
       if (exam?.id) {
         try {
           const lbRes = await api.get(`/attempts/leaderboard/${exam.id}`)
           setLeaderboard(lbRes.data.leaderboard || [])
         } catch {
-          // Results not released yet, or no submissions — not an error here.
           setLeaderboard([])
         }
       } else {
@@ -115,6 +155,69 @@ function Admin() {
     }
   }
 
+  // ── proctoring: exam-wide mode ──
+  const handleSetProctoringMode = async (mode) => {
+    if (!examId) return alert("No exam found")
+    try {
+      await api.patch(`/exams/${examId}`, { proctoringMode: mode })
+      setExamConfig(e => ({ ...e, proctoringMode: mode }))
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update proctoring mode")
+    }
+  }
+
+  const handleToggleConsentRequirement = async () => {
+    if (!examId) return alert("No exam found")
+    const turningOff = examConfig.requireParentalConsent
+    if (turningOff && !confirm(
+      "Turn off parental consent?\n\n" +
+      "Candidates under 18 will then sit camera-monitored examinations without a " +
+      "parent's approval on record. Only do this if consent has been collected " +
+      "another way."
+    )) return
+
+    try {
+      await api.patch(`/exams/${examId}`, { requireParentalConsent: !examConfig.requireParentalConsent })
+      setExamConfig(e => ({ ...e, requireParentalConsent: !e.requireParentalConsent }))
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update consent requirement")
+    }
+  }
+
+  // ── proctoring: per-student override ──
+  const handleSetStudentProctoring = async (userId, data) => {
+    try {
+      await proctoringService.setStudentProctoring(userId, data)
+      setStudentProctoring(null)
+      fetchAll()
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update the candidate's settings")
+    }
+  }
+
+  // ── proctoring: open one report ──
+  const openReport = async (attemptId) => {
+    setReportLoading(true)
+    setReport(null)
+    try {
+      const res = await proctoringService.getReport(attemptId)
+      setReport(res.data)
+    } catch (err) {
+      alert(err.response?.data?.message || "Could not load the report")
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  const openSnapshot = async (id) => {
+    try {
+      const res = await proctoringService.getSnapshot(id)
+      setSnapshotView(res.data.snapshot)
+    } catch (err) {
+      alert("Could not load the image")
+    }
+  }
+
   const handleAddQuestion = async () => {
     setQError(""); setQSuccess("")
     if (!newQ.sectionId) {
@@ -131,6 +234,73 @@ function Admin() {
       setTimeout(() => setQSuccess(""), 3000)
     } catch (err) {
       setQError(err.response?.data?.message || "Failed to add question")
+    }
+  }
+
+  const handleSaveQuestion = async () => {
+    setQError(""); setQSuccess("")
+    if (!editingQ.text || editingQ.options.some(o => !o.text)) {
+      setQError("Fill all fields"); return
+    }
+    const correctCount = editingQ.options.filter(o => o.isCorrect).length
+    if (correctCount !== 1) {
+      setQError("Exactly one option must be marked correct"); return
+    }
+    try {
+      await api.patch(`/exams/questions/${editingQ.id}`, {
+        text: editingQ.text,
+        explanation: editingQ.explanation,
+        options: editingQ.options.map(o => ({
+          key: o.key, text: o.text, isCorrect: o.isCorrect
+        }))
+      })
+      setEditingQ(null)
+      fetchAll()
+    } catch (err) {
+      setQError(err.response?.data?.message || "Failed to update question")
+    }
+  }
+
+  const handleRenameSection = async (sectionId) => {
+    if (!editingSectionName.trim()) return
+    try {
+      await api.patch(`/exams/sections/${sectionId}`, { name: editingSectionName })
+      setEditingSection(null)
+      setEditingSectionName("")
+      fetchAll()
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to rename section")
+    }
+  }
+
+  const handleDeleteSection = async (sectionId, sectionName) => {
+    if (!confirm(`Delete section "${sectionName}"?`)) return
+    try {
+      await api.delete(`/exams/sections/${sectionId}`)
+      fetchAll()
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete section")
+    }
+  }
+
+  const handleRefund = async () => {
+    if (!refundReason) { alert("Please select a refund reason"); return }
+    setRefundLoading(true)
+    try {
+      const res = await api.post("/payments/refund", {
+        paymentId: refundModal.id,
+        reason: refundReason,
+        note: refundNote || undefined,
+      })
+      alert(res.data.message + (res.data.commissionNote ? `\n\n${res.data.commissionNote}` : ""))
+      setRefundModal(null)
+      setRefundReason("")
+      setRefundNote("")
+      fetchAll()
+    } catch (err) {
+      alert(err.response?.data?.message || "Refund failed")
+    } finally {
+      setRefundLoading(false)
     }
   }
 
@@ -161,6 +331,7 @@ function Admin() {
     { id: "coupons", label: "Coupons" },
     { id: "results", label: "Results" },
     { id: "questions", label: "Questions" },
+    { id: "proctoring", label: "Proctoring" },
     { id: "settings", label: "Settings" },
   ]
 
@@ -199,6 +370,11 @@ function Admin() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all
                 ${tab === t.id ? "bg-black text-white" : "bg-white text-gray-600 border"}`}>
               {t.label}
+              {t.id === "proctoring" && flagged.length > 0 && (
+                <span className="ml-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  {flagged.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -206,11 +382,12 @@ function Admin() {
         {/* Overview */}
         {tab === "overview" && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
               {[
                 ["Students", students.length],
                 ["Paid", payments.filter(p => p.status === "PAID").length],
                 ["Submissions", leaderboard.length],
+                ["Flagged", flagged.length],
                 ["Exam", examConfig?.isEnabled ? "Active" : "Disabled"],
               ].map(([label, value]) => (
                 <div key={label} className="bg-white rounded-2xl shadow p-4 text-center">
@@ -255,7 +432,14 @@ function Admin() {
                     const attempted = leaderboard.find(r => r.userId === s.id)
                     return (
                       <tr key={s.id} className="border-t hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium">{s.name}</td>
+                        <td className="px-4 py-3 font-medium">
+                          {s.name}
+                          {typeof s.age === "number" && s.age < 18 && (
+                            <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
+                              Under 18
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-gray-500">{s.email}</td>
                         <td className="px-4 py-3 text-gray-500">{s.whatsappNumber || "—"}</td>
                         <td className="px-4 py-3 text-gray-500">
@@ -276,7 +460,7 @@ function Admin() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex gap-1 justify-center">
+                          <div className="flex gap-1 justify-center flex-wrap">
                             {attempted && (
                               <button
                                 onClick={async () => {
@@ -311,6 +495,16 @@ function Admin() {
                                 Free Access
                               </button>
                             )}
+                            <button
+                              onClick={() => setStudentProctoring({
+                                ...s,
+                                proctoringOverride: s.proctoringOverride || "",
+                                consentWaived: !!s.consentWaived,
+                              })}
+                              className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg"
+                            >
+                              Proctoring
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -331,66 +525,162 @@ function Admin() {
 
         {/* Exams */}
         {tab === "exams" && <AdminExamManager />}
-        
+
         {/* Employees */}
         {tab === "employees" && <AdminEmployees />}
 
         {/* Payouts */}
         {tab === "payouts" && <AdminPayouts />}
 
-        {/* Payments */}
+        {/* Payments — WITH REFUND */}
         {tab === "payments" && (
-          <div className="bg-white rounded-2xl shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Student</th>
-                    <th className="px-4 py-3 text-left">Amount</th>
-                    <th className="px-4 py-3 text-left">Transaction ID</th>
-                    <th className="px-4 py-3 text-center">Status</th>
-                    <th className="px-4 py-3 text-left">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map(p => (
-                    <tr key={p.id} className="border-t hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{p.user?.name}</p>
-                        <p className="text-xs text-gray-400">{p.user?.email}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        ₹{p.amount}
-                        {p.discount > 0 && (
-                          <span className="text-xs text-green-600 ml-1">(−₹{p.discount})</span>
-                        )}
-                        {p.isFreeAccess && (
-                          <span className="text-xs text-blue-600 ml-1">(Free)</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">{p.transactionId || "—"}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold
-                          ${p.status === "PAID" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-400">
-                        {new Date(p.createdAt).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                  {payments.length === 0 && (
+          <>
+            <div className="bg-white rounded-2xl shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
-                        No payments yet
-                      </td>
+                      <th className="px-4 py-3 text-left">Student</th>
+                      <th className="px-4 py-3 text-left">Amount</th>
+                      <th className="px-4 py-3 text-left">Transaction ID</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-center">Action</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {payments.map(p => (
+                      <tr key={p.id} className="border-t hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{p.user?.name}</p>
+                          <p className="text-xs text-gray-400">{p.user?.email}</p>
+                          {p.user?.referredBy && (
+                            <p className="text-xs text-blue-500">via {p.user.referredBy.name}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          ₹{p.amount}
+                          {p.discount > 0 && (
+                            <span className="text-xs text-green-600 ml-1">(−₹{p.discount})</span>
+                          )}
+                          {p.isFreeAccess && (
+                            <span className="text-xs text-blue-600 ml-1">(Free)</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{p.transactionId || "—"}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold
+                            ${p.status === "PAID" ? "bg-green-100 text-green-700"
+                              : p.status === "REFUNDED" ? "bg-red-100 text-red-700"
+                              : "bg-amber-100 text-amber-700"}`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-400">
+                          {new Date(p.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {p.status === "PAID" && !p.isFreeAccess && p.amount > 0 && (
+                            <button
+                              onClick={() => { setRefundModal(p); setRefundReason(""); setRefundNote("") }}
+                              className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-lg"
+                            >
+                              Refund
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {payments.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
+                          No payments yet
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+
+            {/* Refund modal */}
+            {refundModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+                  <h2 className="font-bold text-lg mb-1">Process Refund</h2>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Refunding ₹{refundModal.amount} to {refundModal.user?.name}
+                  </p>
+
+                  <div className="bg-gray-50 rounded-xl p-3 mb-4 text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Transaction</span>
+                      <span className="font-mono text-xs">{refundModal.transactionId || "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Amount</span>
+                      <span className="font-semibold">₹{refundModal.amount}</span>
+                    </div>
+                    {refundModal.user?.referredBy && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Referred by</span>
+                        <span className="text-xs">{refundModal.user.referredBy.name}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="text-xs font-semibold text-gray-600 uppercase block mb-2">
+                      Reason *
+                    </label>
+                    <select
+                      className="w-full border p-2.5 rounded-lg text-sm"
+                      value={refundReason}
+                      onChange={e => setRefundReason(e.target.value)}
+                    >
+                      <option value="">Select a reason</option>
+                      <option value="COMPANY_FAULT">Company fault — commission stands</option>
+                      <option value="CANDIDATE_REQUEST">Candidate request — commission stands</option>
+                      <option value="AGENT_MISCONDUCT">Agent misconduct — commission reversed</option>
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="text-xs font-semibold text-gray-600 uppercase block mb-2">
+                      Internal note (optional)
+                    </label>
+                    <textarea
+                      className="w-full border p-2.5 rounded-lg text-sm"
+                      rows={2}
+                      placeholder="For the office record"
+                      value={refundNote}
+                      onChange={e => setRefundNote(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700 mb-4">
+                    ⚠️ Examination access will be withdrawn. Submitted attempts and results are kept as evidence.
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setRefundModal(null); setRefundReason(""); setRefundNote("") }}
+                      className="flex-1 border py-2.5 rounded-xl text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRefund}
+                      disabled={refundLoading || !refundReason}
+                      className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
+                    >
+                      {refundLoading ? "Processing..." : "Confirm Refund"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Coupons */}
@@ -579,96 +869,416 @@ function Admin() {
           </>
         )}
 
-        {/* Questions */}
+        {/* Questions — WITH EDIT + SECTION MANAGEMENT */}
         {tab === "questions" && (
-          <div className="bg-white rounded-2xl shadow p-6">
-            <div className="mb-6">
-              <h2 className="font-semibold mb-3">
-                Existing Questions ({sections.reduce((a, s) => a + (s.questions?.length || 0), 0)})
-              </h2>
+          <div className="space-y-6">
+
+            {/* Section management */}
+            <div className="bg-white rounded-2xl shadow p-6">
+              <h2 className="font-semibold mb-4">Sections</h2>
               {sections.length === 0 && (
                 <p className="text-sm text-gray-400">No sections found for this exam.</p>
               )}
+              {sections.map((sec, idx) => (
+                <div key={sec.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  {editingSection === sec.id ? (
+                    <div className="flex gap-2 flex-1 mr-3">
+                      <input
+                        className="flex-1 border p-1.5 rounded-lg text-sm"
+                        value={editingSectionName}
+                        onChange={e => setEditingSectionName(e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && handleRenameSection(sec.id)}
+                        autoFocus
+                      />
+                      <button onClick={() => handleRenameSection(sec.id)}
+                        className="text-xs bg-black text-white px-3 py-1 rounded-lg">Save</button>
+                      <button onClick={() => setEditingSection(null)}
+                        className="text-xs border px-3 py-1 rounded-lg">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-xs text-gray-400 w-4">{idx + 1}</span>
+                      <span className="text-sm font-medium">{sec.name}</span>
+                      <span className="text-xs text-gray-400">
+                        ({sec.questions?.length || 0} questions)
+                      </span>
+                    </div>
+                  )}
+                  {editingSection !== sec.id && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => { setEditingSection(sec.id); setEditingSectionName(sec.name) }}
+                        className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-lg"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSection(sec.id, sec.name)}
+                        className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-lg"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Question list */}
+            <div className="bg-white rounded-2xl shadow p-6">
+              <h2 className="font-semibold mb-4">
+                Existing Questions ({sections.reduce((a, s) => a + (s.questions?.length || 0), 0)})
+              </h2>
+
               {sections.map(sec => (
                 <div key={sec.id} className="mb-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-2">{sec.name}</p>
                   {(sec.questions || []).map((q, i) => (
                     <div key={q.id} className="flex items-center justify-between py-2 border-b text-sm">
                       <span className="text-gray-700 flex-1 pr-4">
-                        {i + 1}. {q.text.length > 80 ? `${q.text.slice(0, 80)}…` : q.text}
+                        {i + 1}. {q.text.length > 70 ? `${q.text.slice(0, 70)}…` : q.text}
                       </span>
-                      <button
-                        onClick={async () => {
-                          if (!confirm("Delete this question?")) return
-                          try {
-                            await api.delete(`/exams/questions/${q.id}`)
-                            fetchAll()
-                          } catch (err) {
-                            alert(err.response?.data?.message || "Failed to delete question")
-                          }
-                        }}
-                        className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-lg flex-shrink-0"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => setEditingQ({
+                            ...q,
+                            options: (q.options || []).map(o => ({ ...o }))
+                          })}
+                          className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-lg"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Delete this question?")) return
+                            try {
+                              await api.delete(`/exams/questions/${q.id}`)
+                              fetchAll()
+                            } catch (err) {
+                              alert(err.response?.data?.message || "Failed to delete question")
+                            }
+                          }}
+                          className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-lg"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   ))}
+                  {(sec.questions || []).length === 0 && (
+                    <p className="text-xs text-gray-400 py-2">No questions in this section yet</p>
+                  )}
                 </div>
               ))}
             </div>
 
-            <hr className="mb-6" />
+            {/* Edit question modal */}
+            {editingQ && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                  <h3 className="font-bold text-lg mb-4">Edit Question</h3>
+                  <div className="mb-3">
+                    <label className="text-xs font-semibold text-gray-600 uppercase block mb-1">
+                      Question Text
+                    </label>
+                    <textarea className="w-full border rounded-lg p-2 text-sm" rows={3}
+                      value={editingQ.text}
+                      onChange={e => setEditingQ(q => ({ ...q, text: e.target.value }))} />
+                  </div>
+                  {editingQ.options.map((opt, i) => (
+                    <div key={opt.key} className="mb-2 flex gap-2 items-center">
+                      <span className="text-sm font-bold w-5">{opt.key}</span>
+                      <input className="flex-1 border rounded-lg p-2 text-sm"
+                        value={opt.text}
+                        onChange={e => {
+                          const opts = [...editingQ.options]
+                          opts[i] = { ...opts[i], text: e.target.value }
+                          setEditingQ(q => ({ ...q, options: opts }))
+                        }} />
+                      <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+                        <input type="radio" name="editCorrect" checked={opt.isCorrect}
+                          onChange={() => {
+                            const opts = editingQ.options.map((o, j) => ({ ...o, isCorrect: j === i }))
+                            setEditingQ(q => ({ ...q, options: opts }))
+                          }} />
+                        Correct
+                      </label>
+                    </div>
+                  ))}
+                  <div className="mb-4 mt-3">
+                    <label className="text-xs font-semibold text-gray-600 uppercase block mb-1">
+                      Explanation
+                    </label>
+                    <input className="w-full border rounded-lg p-2 text-sm"
+                      value={editingQ.explanation || ""}
+                      onChange={e => setEditingQ(q => ({ ...q, explanation: e.target.value }))} />
+                  </div>
+                  {qError && <p className="text-red-500 text-sm mb-3">{qError}</p>}
+                  <div className="flex gap-3">
+                    <button onClick={() => { setEditingQ(null); setQError("") }}
+                      className="flex-1 border py-2.5 rounded-xl text-sm font-medium">
+                      Cancel
+                    </button>
+                    <button onClick={handleSaveQuestion}
+                      className="flex-1 bg-black text-white py-2.5 rounded-xl text-sm font-medium">
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            <h2 className="font-semibold mb-4">Add New Question</h2>
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 font-medium block mb-1">Section</label>
-              <select className="w-full border rounded-lg p-2 text-sm"
-                value={newQ.sectionId}
-                onChange={e => setNewQ(q => ({ ...q, sectionId: e.target.value }))}>
-                {sections.length === 0 && <option value="">No sections available</option>}
-                {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 font-medium block mb-1">Question Text</label>
-              <textarea className="w-full border rounded-lg p-2 text-sm" rows={3}
-                value={newQ.text}
-                onChange={e => setNewQ(q => ({ ...q, text: e.target.value }))} />
-            </div>
-            {newQ.options.map((opt, i) => (
-              <div key={opt.key} className="mb-3 flex gap-3 items-center">
-                <span className="text-sm font-bold w-6">{opt.key}</span>
-                <input className="flex-1 border rounded-lg p-2 text-sm"
-                  placeholder={`Option ${opt.key}`}
-                  value={opt.text}
-                  onChange={e => {
-                    const updated = [...newQ.options]
-                    updated[i] = { ...updated[i], text: e.target.value }
-                    setNewQ(q => ({ ...q, options: updated }))
-                  }} />
-                <label className="flex items-center gap-1 text-xs text-gray-500">
-                  <input type="radio" name="correct"
-                    checked={opt.isCorrect}
-                    onChange={() => {
-                      const updated = newQ.options.map((o, j) => ({ ...o, isCorrect: j === i }))
+            {/* Add new question */}
+            <div className="bg-white rounded-2xl shadow p-6">
+              <h2 className="font-semibold mb-4">Add New Question</h2>
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 font-medium block mb-1">Section</label>
+                <select className="w-full border rounded-lg p-2 text-sm"
+                  value={newQ.sectionId}
+                  onChange={e => setNewQ(q => ({ ...q, sectionId: e.target.value }))}>
+                  {sections.length === 0 && <option value="">No sections available</option>}
+                  {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 font-medium block mb-1">Question Text</label>
+                <textarea className="w-full border rounded-lg p-2 text-sm" rows={3}
+                  value={newQ.text}
+                  onChange={e => setNewQ(q => ({ ...q, text: e.target.value }))} />
+              </div>
+              {newQ.options.map((opt, i) => (
+                <div key={opt.key} className="mb-3 flex gap-3 items-center">
+                  <span className="text-sm font-bold w-6">{opt.key}</span>
+                  <input className="flex-1 border rounded-lg p-2 text-sm"
+                    placeholder={`Option ${opt.key}`}
+                    value={opt.text}
+                    onChange={e => {
+                      const updated = [...newQ.options]
+                      updated[i] = { ...updated[i], text: e.target.value }
                       setNewQ(q => ({ ...q, options: updated }))
                     }} />
-                  Correct
-                </label>
+                  <label className="flex items-center gap-1 text-xs text-gray-500">
+                    <input type="radio" name="correct"
+                      checked={opt.isCorrect}
+                      onChange={() => {
+                        const updated = newQ.options.map((o, j) => ({ ...o, isCorrect: j === i }))
+                        setNewQ(q => ({ ...q, options: updated }))
+                      }} />
+                    Correct
+                  </label>
+                </div>
+              ))}
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 font-medium block mb-1">Explanation (optional)</label>
+                <input className="w-full border rounded-lg p-2 text-sm"
+                  value={newQ.explanation}
+                  onChange={e => setNewQ(q => ({ ...q, explanation: e.target.value }))} />
               </div>
-            ))}
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 font-medium block mb-1">Explanation (optional)</label>
-              <input className="w-full border rounded-lg p-2 text-sm"
-                value={newQ.explanation}
-                onChange={e => setNewQ(q => ({ ...q, explanation: e.target.value }))} />
+              {qError && !editingQ && <p className="text-red-500 text-sm mb-3">{qError}</p>}
+              {qSuccess && <p className="text-green-600 text-sm mb-3">{qSuccess}</p>}
+              <button onClick={handleAddQuestion}
+                className="bg-black text-white px-6 py-2 rounded-lg text-sm">
+                Add Question
+              </button>
             </div>
-            {qError && <p className="text-red-500 text-sm mb-3">{qError}</p>}
-            {qSuccess && <p className="text-green-600 text-sm mb-3">{qSuccess}</p>}
-            <button onClick={handleAddQuestion}
-              className="bg-black text-white px-6 py-2 rounded-lg text-sm">
-              Add Question
-            </button>
+          </div>
+        )}
+
+        {/* ══ PROCTORING ══════════════════════════════════════════ */}
+        {tab === "proctoring" && (
+          <div className="space-y-6">
+
+            {/* Exam-wide setting */}
+            {examConfig ? (
+              <div className="bg-white rounded-2xl shadow p-6">
+                <h2 className="font-semibold mb-1">Monitoring for this examination</h2>
+                <p className="text-xs text-gray-400 mb-5">
+                  Applies to every candidate unless overridden individually
+                </p>
+
+                <div className="space-y-2 mb-6">
+                  {[
+                    ["OFF", "Off", "Nothing is watched or recorded"],
+                    ["BROWSER_ONLY", "Activity only", "Tab switches, copy, paste, developer tools. No camera."],
+                    ["FACE_DETECTION", "Camera, no images kept", "Detects absence and extra people. Nothing is stored."],
+                    ["FULL_RECORDING", "Camera, images stored", "Still images captured periodically and kept for review."],
+                  ].map(([value, label, desc]) => {
+                    const active = (examConfig.proctoringMode || "OFF") === value
+                    return (
+                      <button key={value} onClick={() => handleSetProctoringMode(value)}
+                        className={`w-full text-left p-3 rounded-xl border-2 transition-all
+                          ${active ? "border-black bg-gray-50" : "border-gray-200 hover:border-gray-300"}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0
+                            ${active ? "border-black bg-black" : "border-gray-300"}`} />
+                          <span className="font-medium text-sm">{label}</span>
+                          {value === "FULL_RECORDING" && (
+                            <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">
+                              Stores images
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 ml-6">{desc}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="flex items-start justify-between py-4 border-t gap-4">
+                  <div>
+                    <p className="font-medium text-sm">Require parental consent under 18</p>
+                    <p className="text-xs text-gray-400 mt-0.5 max-w-md">
+                      A parent must verify by email before a minor sits a camera-monitored
+                      examination. Turning this off without consent collected elsewhere
+                      creates legal exposure under the DPDP Act.
+                    </p>
+                  </div>
+                  <button onClick={handleToggleConsentRequirement}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap
+                      ${examConfig.requireParentalConsent
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"}`}>
+                    {examConfig.requireParentalConsent ? "Required ✓" : "Not required"}
+                  </button>
+                </div>
+
+                {examConfig.proctoringMode !== "OFF" && !examConfig.requireParentalConsent && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800 mt-2">
+                    ⚠️ Minors will sit this examination with the camera on and no parental
+                    consent on record. Make sure consent has been collected another way.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow p-6">
+                <p className="text-sm text-gray-500">No exam found, so there is nothing to configure.</p>
+              </div>
+            )}
+
+            {/* Flagged sittings */}
+            <div className="bg-white rounded-2xl shadow overflow-hidden">
+              <div className="p-6 pb-3">
+                <h2 className="font-semibold">Sittings worth reviewing</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Sorted by risk. A score is a prompt to look, never a verdict on its own.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Candidate</th>
+                      <th className="px-4 py-3 text-center">Mode</th>
+                      <th className="px-4 py-3 text-center">Risk</th>
+                      <th className="px-4 py-3 text-center">High</th>
+                      <th className="px-4 py-3 text-center">Medium</th>
+                      <th className="px-4 py-3 text-center">Total</th>
+                      <th className="px-4 py-3 text-left">Submitted</th>
+                      <th className="px-4 py-3 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flagged.map(f => (
+                      <tr key={f.attemptId} className="border-t hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{f.student?.name}</p>
+                          <p className="text-xs text-gray-400">{f.student?.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs text-gray-500">
+                          {MODE_LABEL[f.proctoringMode] || f.proctoringMode}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold
+                            ${f.riskScore >= 60 ? "bg-red-100 text-red-700"
+                              : f.riskScore >= 25 ? "bg-amber-100 text-amber-700"
+                              : "bg-gray-100 text-gray-600"}`}>
+                            {f.riskScore}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center text-red-600 font-semibold">{f.highSeverity}</td>
+                        <td className="px-4 py-3 text-center text-amber-600">{f.mediumSeverity}</td>
+                        <td className="px-4 py-3 text-center text-gray-500">{f.totalEvents}</td>
+                        <td className="px-4 py-3 text-xs text-gray-400">
+                          {f.submittedAt ? new Date(f.submittedAt).toLocaleString() : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button onClick={() => openReport(f.attemptId)}
+                            className="text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-lg">
+                            Review
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {flagged.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
+                          Nothing flagged. Either the examinations were clean, or monitoring is off.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Consent records */}
+            <div className="bg-white rounded-2xl shadow overflow-hidden">
+              <div className="p-6 pb-3">
+                <h2 className="font-semibold">Parental consent records</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Kept as evidence. Do not delete these while a candidate's result stands.
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Candidate</th>
+                      <th className="px-4 py-3 text-center">Age</th>
+                      <th className="px-4 py-3 text-left">Parent / guardian</th>
+                      <th className="px-4 py-3 text-left">Contact</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-left">Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {consents.map(c => (
+                      <tr key={c.id} className="border-t hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{c.student?.name}</p>
+                          <p className="text-xs text-gray-400">{c.student?.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-center">{c.student?.age ?? "—"}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{c.parentName}</p>
+                          <p className="text-xs text-gray-400">{c.relationship || "—"}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500">
+                          <p>{c.parentEmail}</p>
+                          <p>{c.parentPhone}</p>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold
+                            ${c.verified ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                            {c.verified ? "Given" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-400">
+                          {c.verifiedAt ? new Date(c.verifiedAt).toLocaleString() : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                    {consents.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
+                          No consent records yet
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
@@ -699,6 +1309,19 @@ function Admin() {
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all
                     ${examConfig.allowReattempt ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                   {examConfig.allowReattempt ? "Enabled ✓" : "Disabled"}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between py-4 border-b">
+                <div>
+                  <p className="font-medium text-sm">Proctoring</p>
+                  <p className="text-xs text-gray-400">
+                    {MODE_LABEL[examConfig.proctoringMode] || "Not monitored"}
+                  </p>
+                </div>
+                <button onClick={() => setTab("proctoring")}
+                  className="px-4 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600">
+                  Configure →
                 </button>
               </div>
 
@@ -742,8 +1365,185 @@ function Admin() {
           )
         )}
       </div>
+
+      {/* ══ Per-student proctoring modal ══════════════════════════ */}
+      {studentProctoring && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h2 className="font-bold text-lg mb-1">Proctoring for {studentProctoring.name}</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              {typeof studentProctoring.age === "number"
+                ? `Age ${studentProctoring.age}${studentProctoring.age < 18 ? " — a minor" : ""}`
+                : "Age not on record"}
+            </p>
+
+            <label className="text-xs font-semibold text-gray-600 uppercase block mb-2">
+              Monitoring for this candidate
+            </label>
+            <select className="w-full border p-2.5 rounded-lg text-sm mb-1"
+              value={studentProctoring.proctoringOverride}
+              onChange={e => setStudentProctoring(s => ({ ...s, proctoringOverride: e.target.value }))}>
+              <option value="">
+                Follow the exam setting ({MODE_LABEL[examConfig?.proctoringMode] || "Not monitored"})
+              </option>
+              <option value="OFF">Off — nothing watched</option>
+              <option value="BROWSER_ONLY">Activity only — no camera</option>
+              <option value="FACE_DETECTION">Camera, no images kept</option>
+              <option value="FULL_RECORDING">Camera, images stored</option>
+            </select>
+            <p className="text-xs text-gray-400 mb-5">
+              Use this for a candidate with no camera, an accommodation, or a supervised
+              retake. It overrides the exam-wide setting for this person only.
+            </p>
+
+            {typeof studentProctoring.age === "number" && studentProctoring.age < 18 && (
+              <label className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 cursor-pointer">
+                <input type="checkbox" className="mt-0.5"
+                  checked={studentProctoring.consentWaived}
+                  onChange={e => setStudentProctoring(s => ({ ...s, consentWaived: e.target.checked }))} />
+                <span className="text-xs text-amber-900">
+                  <strong>Waive parental consent for this candidate.</strong> Only tick this
+                  if consent has been collected on paper or in person. The waiver is logged
+                  against your account.
+                </span>
+              </label>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setStudentProctoring(null)}
+                className="flex-1 border py-2.5 rounded-xl text-sm font-medium">
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSetStudentProctoring(studentProctoring.id, {
+                  proctoringOverride: studentProctoring.proctoringOverride || null,
+                  consentWaived: studentProctoring.consentWaived,
+                })}
+                className="flex-1 bg-black text-white py-2.5 rounded-xl text-sm font-medium">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Proctoring report modal ═══════════════════════════════ */}
+      {(report || reportLoading) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {reportLoading ? (
+              <div className="p-10 text-center text-gray-500">Loading report…</div>
+            ) : (
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-5">
+                  <div>
+                    <h2 className="font-bold text-lg">{report.attempt.student?.name}</h2>
+                    <p className="text-sm text-gray-500">{report.attempt.student?.email}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {MODE_LABEL[report.attempt.proctoringMode] || report.attempt.proctoringMode}
+                      {report.attempt.submittedAt &&
+                        ` · submitted ${new Date(report.attempt.submittedAt).toLocaleString()}`}
+                    </p>
+                  </div>
+                  <button onClick={() => setReport(null)} className="text-gray-400 text-xl leading-none">✕</button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3 mb-6">
+                  {[
+                    ["Risk", report.summary.riskScore],
+                    ["High", report.summary.highSeverity],
+                    ["Medium", report.summary.mediumSeverity],
+                    ["Images", report.summary.snapshotCount],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-gray-50 rounded-xl p-3 text-center">
+                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="text-xl font-bold">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 mb-6">
+                  These signals show what the browser observed, not what the candidate
+                  intended. A tab switch may be an accident and a missing face may be
+                  bad lighting. Review the whole picture before acting.
+                </div>
+
+                {report.summary.snapshotCount > 0 && (
+                  <>
+                    <h3 className="font-semibold text-sm mb-2">Captured images</h3>
+                    <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
+                      {report.snapshots.map(s => (
+                        <button key={s.id} onClick={() => openSnapshot(s.id)}
+                          className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs border
+                            ${s.flagged ? "border-red-300 bg-red-50 text-red-700" : "border-gray-200"}`}>
+                          {new Date(s.capturedAt).toLocaleTimeString()}
+                          {s.flagged && " ⚠"}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <h3 className="font-semibold text-sm mb-2">Event log</h3>
+                <div className="border rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Time</th>
+                        <th className="px-3 py-2 text-left">Event</th>
+                        <th className="px-3 py-2 text-center">Severity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.events.map(e => (
+                        <tr key={e.id} className="border-t">
+                          <td className="px-3 py-2 text-xs text-gray-500 font-mono">
+                            {new Date(e.occurredAt).toLocaleTimeString()}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{e.eventType.replace(/_/g, " ")}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold
+                              ${e.severity === "HIGH" ? "bg-red-100 text-red-700"
+                                : e.severity === "MEDIUM" ? "bg-amber-100 text-amber-700"
+                                : "bg-gray-100 text-gray-500"}`}>
+                              {e.severity}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {report.events.length === 0 && (
+                        <tr><td colSpan={3} className="px-3 py-5 text-center text-gray-400 text-xs">
+                          No events recorded
+                        </td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ Snapshot viewer ═══════════════════════════════════════ */}
+      {snapshotView && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4"
+          onClick={() => setSnapshotView(null)}>
+          <div className="bg-white rounded-2xl p-4 max-w-lg" onClick={e => e.stopPropagation()}>
+            <img src={snapshotView.imageData} alt="Captured frame" className="rounded-xl w-full" />
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-xs text-gray-500">
+                {new Date(snapshotView.capturedAt).toLocaleString()}
+                {snapshotView.flagReason && ` · ${snapshotView.flagReason}`}
+              </p>
+              <button onClick={() => setSnapshotView(null)}
+                className="text-xs border px-3 py-1 rounded-lg">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-export default Admin
+export default Admin 

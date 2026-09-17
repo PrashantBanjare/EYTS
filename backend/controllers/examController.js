@@ -73,6 +73,10 @@ const announceRelease = async (examId) => {
 //  correct option. Both are returned later by the result endpoint.
 //
 //  Do not replace these selects with `true`.
+//
+//  proctoringMode IS returned: the candidate has a right to know they
+//  are being watched before they agree to start. Hiding it would be
+//  both unfair and, for a minor, unlawful.
 // ═══════════════════════════════════════════════════════════════════
 const getActiveExam = async (req, res) => {
   try {
@@ -87,6 +91,8 @@ const getActiveExam = async (req, res) => {
         isEnabled: true,
         allowReattempt: true,
         resultReleaseAt: true,
+        proctoringMode: true,
+        requireParentalConsent: true,
         sections: {
           orderBy: { order: "asc" },
           select: {
@@ -180,6 +186,8 @@ const createExam = async (req, res) => {
       return res.status(400).json({ message: "Total marks must be at least 1" })
     }
 
+    // A new exam starts unproctored. Turning monitoring on is a decision
+    // somebody makes deliberately, not a default they inherit.
     const exam = await prisma.exam.create({
       data: {
         title: title.trim(),
@@ -209,6 +217,7 @@ const updateExam = async (req, res) => {
     const {
       title, description, durationSeconds, totalMarks,
       isEnabled, allowReattempt, resultReleaseAt, answerKeyReleaseAt,
+      proctoringMode, requireParentalConsent,
     } = req.body
 
     const existing = await prisma.exam.findUnique({
@@ -274,6 +283,44 @@ const updateExam = async (req, res) => {
 
     if (allowReattempt !== undefined) {
       data.allowReattempt = !!allowReattempt
+    }
+
+    // ── Proctoring ────────────────────────────────────────────────
+    // Changing the mode while people are sitting the paper would mean
+    // some candidates are judged under rules they were never shown.
+    // Each attempt stores the mode it began under, but the browser
+    // cannot switch the camera on mid-exam, so block the change.
+    if (proctoringMode !== undefined) {
+      const VALID = ["OFF", "BROWSER_ONLY", "FACE_DETECTION", "FULL_RECORDING"]
+      if (!VALID.includes(proctoringMode)) {
+        return res.status(400).json({
+          message: `Proctoring mode must be one of: ${VALID.join(", ")}`,
+        })
+      }
+
+      const inProgress = await prisma.examAttempt.count({
+        where: { examId: id, isSubmitted: false },
+      })
+      if (inProgress > 0 && proctoringMode !== existing.proctoringMode) {
+        return res.status(400).json({
+          message: `${inProgress} student(s) are sitting this exam now. Their monitoring cannot be changed mid-paper.`,
+        })
+      }
+
+      data.proctoringMode = proctoringMode
+    }
+
+    // Turning this off means minors sit camera-monitored exams without a
+    // parent's approval. It is allowed, because the office may have
+    // collected consent on paper — but it is logged, not silent.
+    if (requireParentalConsent !== undefined) {
+      data.requireParentalConsent = !!requireParentalConsent
+
+      if (requireParentalConsent === false) {
+        console.warn(
+          `[CONSENT] admin ${req.user?.id} disabled parental consent on exam ${id} ("${existing.title}")`
+        )
+      }
     }
 
     if (resultReleaseAt !== undefined) {

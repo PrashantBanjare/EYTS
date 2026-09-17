@@ -217,12 +217,12 @@ function Home() {
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:"1.5rem"}}>
             {[
-              ["📝","Online Competitive Exams","Conduct large-scale MCQ-based examinations with real-time evaluation, automated ranking, and result publication for thousands of candidates at the end of the  day.","Core Service"],
-              ["🏛️","Government Exam Partnerships","Working toward partnerships with state and central government bodies to conduct recruitment and entrance examinations with highest security standards.","Coming Soon"],
-              ["🏫","Institutional Assessment","Custom examination solutions for colleges, universities, and training institutes with configurable question banks, sections, and analytics.","Available"],
-              ["💼","Corporate Recruitment Testing","Screen and evaluate job candidates through standardised aptitude, reasoning, and domain-specific assessments with detailed performance reports.","Available"],
-              ["📊","Performance Analytics","Advanced dashboards providing section-wise breakdown, percentile ranking, leaderboard comparisons, and historical trend analysis.","Core Service"],
-              ["🔒","Secure Proctoring","AI-powered proctoring with tab-switch detection, webcam monitoring, and behavioural analysis ensures examination integrity.","In Development"],
+              ["","Online Competitive Exams","Conduct large-scale MCQ-based examinations with real-time evaluation, automated ranking, and result publication for thousands of candidates at the end of the  day.","Core Service"],
+              ["","Government Exam Partnerships","Working toward partnerships with state and central government bodies to conduct recruitment and entrance examinations with highest security standards.","Coming Soon"],
+              ["","Institutional Assessment","Custom examination solutions for colleges, universities, and training institutes with configurable question banks, sections, and analytics.","Available"],
+              ["","Corporate Recruitment Testing","Screen and evaluate job candidates through standardised aptitude, reasoning, and domain-specific assessments with detailed performance reports.","Available"],
+              ["","Performance Analytics","Advanced dashboards providing section-wise breakdown, percentile ranking, leaderboard comparisons, and historical trend analysis.","Core Service"],
+              ["","Secure Proctoring","AI-powered proctoring with tab-switch detection, webcam monitoring, and behavioural analysis ensures examination integrity.","In Development"],
             ].map(([icon,title,text,tag])=>(
               <div key={title} className="service-card">
                 <div style={{width:52,height:52,borderRadius:12,background:"rgba(201,168,76,0.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.5rem",marginBottom:"1.25rem"}}>{icon}</div>
@@ -283,7 +283,7 @@ function Home() {
           <h2 style={{fontSize:"clamp(1.8rem,3.5vw,2.6rem)",fontWeight:800,color:"#fff",marginBottom:"1rem",letterSpacing:"-.02em"}}>Driven by a <span style={{color:"#c9a84c"}}>Greater Mission</span></h2>
           <p style={{fontSize:"1rem",color:"rgba(255,255,255,0.6)",maxWidth:560,margin:"0 auto 3rem",lineHeight:1.7}}>EYTS LLP was built on the belief that knowledge should be the only criterion for opportunity.</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"2rem"}}>
-            {[["🎓","Education First","Partner with educational institutions to standardise assessments and provide credible certifications recognised across India."],["⚖️","Fair Evaluation","Eliminate bias and subjectivity through technology-driven, standardised examination systems accessible to every aspirant."],["🌐","National Reach","Reach students in every district of India through our online platform, removing geographic and logistic barriers."],["🤝","Community Impact","Give back through NGO programmes, scholarships, and healthcare initiatives that uplift communities beyond examinations."]].map(([icon,title,text])=>(
+            {[["","Education First","Partner with educational institutions to standardise assessments and provide credible certifications recognised across India."],["","Fair Evaluation","Eliminate bias and subjectivity through technology-driven, standardised examination systems accessible to every aspirant."],["","National Reach","Reach students in every district of India through our online platform, removing geographic and logistic barriers."],["","Community Impact","Give back through NGO programmes, scholarships, and healthcare initiatives that uplift communities beyond examinations."]].map(([icon,title,text])=>(
               <div key={title} className="mission-card">
                 <div style={{fontSize:"2.5rem",marginBottom:"1rem"}}>{icon}</div>
                 <div style={{fontSize:"1rem",fontWeight:700,color:"#c9a84c",marginBottom:".5rem"}}>{title}</div>
@@ -304,9 +304,9 @@ function Home() {
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"1.5rem"}}>
             {[
-              {bg:"linear-gradient(135deg,#0a1628,#1a3a5c)",icon:"📋",title:"Examination Division",sub:"Core Business · Active",text:"Our primary division conducts online competitive examinations for students, institutions, and government bodies across India.",items:["Online MCQ-based examinations","Automated evaluation & ranking","AI proctoring (in development)","Government exam partnerships (planned)","National certification programmes"]},
-              {bg:"linear-gradient(135deg,#0f4c35,#1a7a55)",icon:"🏥",title:"EYTS Hospitals",sub:"Healthcare Division · Planned 2027-2028",text:"We plan to establish affordable healthcare facilities in underserved regions, ensuring talent can flourish when health is not a barrier.",items:["Affordable primary healthcare centres","Free health camps for students","Mental health & wellness programmes","Medical scholarship for toppers","Rural health outreach"]},
-              {bg:"linear-gradient(135deg,#4a1a6b,#7b2fa8)",icon:"🤝",title:"EYTS NGO",sub:"Social Welfare · Planned 2027-2028",text:"Our NGO arm will focus on education access, women empowerment, and rural development — creating a complete cycle of opportunity.",items:["Free coaching for underprivileged students","Scholarship & financial aid programmes","Women leadership initiatives","Digital literacy in rural areas","Community development projects"]},
+              {bg:"linear-gradient(135deg,#0a1628,#1a3a5c)",icon:"",title:"Examination Division",sub:"Core Business · Active",text:"Our primary division conducts online competitive examinations for students, institutions, and government bodies across India.",items:["Online MCQ-based examinations","Automated evaluation & ranking","AI proctoring (in development)","Government exam partnerships (planned)","National certification programmes"]},
+              {bg:"linear-gradient(135deg,#0f4c35,#1a7a55)",icon:"",title:"EYTS Hospitals",sub:"Healthcare Division · Planned 2027-2028",text:"We plan to establish affordable healthcare facilities in underserved regions, ensuring talent can flourish when health is not a barrier.",items:["Affordable primary healthcare centres","Free health camps for students","Mental health & wellness programmes","Medical scholarship for toppers","Rural health outreach"]},
+              {bg:"linear-gradient(135deg,#4a1a6b,#7b2fa8)",icon:"",title:"EYTS NGO",sub:"Social Welfare · Planned 2027-2028",text:"Our NGO arm will focus on education access, women empowerment, and rural development — creating a complete cycle of opportunity.",items:["Free coaching for underprivileged students","Scholarship & financial aid programmes","Women leadership initiatives","Digital literacy in rural areas","Community development projects"]},
             ].map(d=>(
               <div key={d.title} className="initiative-card">
                 <div style={{padding:"2rem",background:d.bg}}>
@@ -354,8 +354,7 @@ function Home() {
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"1.5rem"}}>
             {[
               ["Nisha.jpeg","Mrs Nisha","Founder & CEO","Visionary leader driving EYTS's mission to democratise competitive examinations across India.",null],
-              ["Prashannjit.jpeg","Prashannjit","Director","Oversees examination operations, institutional partnerships, and quality assurance.",null],
-              ["mai_small.jpg","Prashant","Founding Full-stack AI Engineer","Full-stack architect responsible for the platform's security, scalability, and performance.","https://prashantbanjare.github.io"]
+              ["Prashannjit.jpeg","Prashannjit","Director","Oversees examination operations, institutional partnerships, and quality assurance.",null]
             ].map(([img, name, role, bio, link])=>(
               <div key={name} className="team-card">
                 <div style={{width:72,height:72,borderRadius:"50%",margin:"0 auto 1rem",overflow:"hidden",border:"3px solid #c9a84c",flexShrink:0}}>
@@ -404,7 +403,7 @@ function Home() {
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4rem"}}>
             <div>
               <h3 style={{fontSize:"1.2rem",fontWeight:700,color:"#0a1628",marginBottom:"1.5rem"}}>Reach Out To Us</h3>
-              {[["📍","Head Office","EYTS LLP.\nKawardha, Chhattisgarh — 491995\nIndia"],["📧","Email","priyanksha1803@gmail.com"],["📞","Phone","+91 7999832476\nMon–Sat, 9 AM – 6 PM IST"],["🕐","Support Hours","Monday to Saturday\n9:00 AM – 6:00 PM IST"]].map(([icon,title,text])=>(
+              {[["","Head Office","EYTS LLP.\nKawardha, Chhattisgarh — 491995\nIndia"],["","Email","priyanksha1803@gmail.com"],["","Phone","+91 7999832476\nMon–Sat, 9 AM – 6 PM IST"],["","Support Hours","Monday to Saturday\n9:00 AM – 6:00 PM IST"]].map(([icon,title,text])=>(
                 <div key={title} style={{display:"flex",gap:"1rem",marginBottom:"1.5rem",alignItems:"flex-start"}}>
                   <div style={{width:44,height:44,background:"rgba(201,168,76,0.1)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.1rem",flexShrink:0}}>{icon}</div>
                   <div>

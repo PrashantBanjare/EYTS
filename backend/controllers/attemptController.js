@@ -5,6 +5,7 @@ const {
   resultEmailTemplate,
   submissionEmailTemplate,
 } = require("../utils/emailTemplates")
+const { resolveProctoringMode } = require("./proctoringController")
 
 // Students now get durable in-app notifications, as employees already do,
 // rather than a list recomputed on every page load.
@@ -100,14 +101,44 @@ const startAttempt = async (req, res) => {
       })
     }
 
+    // ── PROCTORING & PARENTAL CONSENT GATE ────────────────────────
+    //
+    // Enforced here, on the server, not in the exam page. A candidate
+    // who skips the consent screen in the browser still cannot start:
+    // this is the only route that creates an attempt.
+    //
+    // The resolved mode is written onto the attempt, so a later change
+    // to the exam settings cannot retroactively claim a candidate was
+    // watched under rules they were never shown.
+    const proctoring = await resolveProctoringMode(userId, examId)
+    const mode = proctoring?.mode || "OFF"
+
+    if (proctoring?.needsConsent) {
+      const consent = await prisma.parentalConsent.findUnique({
+        where: { studentId: userId },
+        select: { verified: true },
+      })
+      if (!consent?.verified) {
+        return res.status(403).json({
+          message:
+            "This examination is monitored by camera. Because you are under 18, a parent or guardian must give consent before you can begin.",
+          needsParentalConsent: true,
+          proctoringMode: mode,
+        })
+      }
+    }
+
     const attempt = await prisma.examAttempt.create({
-      data: { userId, examId }
+      data: { userId, examId, proctoringMode: mode }
     })
 
     res.status(201).json({
       message: "Exam started successfully",
       attemptId: attempt.id,
-      durationSeconds: exam.durationSeconds
+      durationSeconds: exam.durationSeconds,
+      proctoringMode: mode,
+      usesCamera: mode === "FACE_DETECTION" || mode === "FULL_RECORDING",
+      storesSnapshots: mode === "FULL_RECORDING",
     })
   } catch (error) {
     console.error("startAttempt error:", error)
@@ -599,6 +630,10 @@ const resetAttempt = async (req, res) => {
 
     for (const attempt of attempts) {
       await prisma.attemptAnswer.deleteMany({ where: { attemptId: attempt.id } })
+      // Proctoring records belong to the attempt and must go with it,
+      // or the foreign key will refuse the delete.
+      await prisma.proctoringEvent.deleteMany({ where: { attemptId: attempt.id } })
+      await prisma.proctoringSnapshot.deleteMany({ where: { attemptId: attempt.id } })
       if (attempt.result) {
         await prisma.result.delete({ where: { id: attempt.result.id } })
       }
@@ -660,7 +695,10 @@ const getAttemptSheetAdmin = async (req, res) => {
               }
             }
           }
-        }
+        },
+        // A dispute about a score is usually also a dispute about conduct,
+        // so the reviewer sees both on one page.
+        proctoringEvents: { orderBy: { occurredAt: "asc" } },
       }
     })
 
@@ -681,6 +719,9 @@ const getAttemptSheetAdmin = async (req, res) => {
     const wrongCount = answers.filter(a => a.selectedKey && !a.isCorrect).length
     const skippedCount = answers.filter(a => !a.selectedKey).length
 
+    const highSeverity = attempt.proctoringEvents.filter(e => e.severity === "HIGH").length
+    const mediumSeverity = attempt.proctoringEvents.filter(e => e.severity === "MEDIUM").length
+
     res.status(200).json({
       attempt: {
         id: attempt.id,
@@ -688,6 +729,7 @@ const getAttemptSheetAdmin = async (req, res) => {
         submittedAt: attempt.submittedAt,
         timeTaken: attempt.timeTaken,
         isSubmitted: attempt.isSubmitted,
+        proctoringMode: attempt.proctoringMode,
         user: attempt.user,
         exam: attempt.exam,
         result: attempt.result,
@@ -697,6 +739,14 @@ const getAttemptSheetAdmin = async (req, res) => {
         correct: correctCount,
         wrong: wrongCount,
         skipped: skippedCount,
+      },
+      proctoring: {
+        mode: attempt.proctoringMode,
+        totalEvents: attempt.proctoringEvents.length,
+        highSeverity,
+        mediumSeverity,
+        riskScore: Math.min(100, highSeverity * 20 + mediumSeverity * 5),
+        events: attempt.proctoringEvents,
       },
       answers: answers.map(a => ({
         id: a.id,
@@ -730,21 +780,29 @@ const getExamAttemptsAdmin = async (req, res) => {
       include: {
         result: true,
         user: { select: { id: true, name: true, email: true, institutionName: true } },
+        proctoringEvents: { select: { severity: true } },
       }
     })
 
     res.status(200).json({
       count: attempts.length,
-      attempts: attempts.map(a => ({
-        id: a.id,
-        submittedAt: a.submittedAt,
-        timeTaken: a.timeTaken,
-        user: a.user,
-        totalScore: a.result?.totalScore ?? null,
-        totalQuestions: a.result?.totalQuestions ?? null,
-        percentage: a.result?.percentage ?? null,
-        rank: a.result?.rank ?? null,
-      }))
+      attempts: attempts.map(a => {
+        const high = a.proctoringEvents.filter(e => e.severity === "HIGH").length
+        const medium = a.proctoringEvents.filter(e => e.severity === "MEDIUM").length
+        return {
+          id: a.id,
+          submittedAt: a.submittedAt,
+          timeTaken: a.timeTaken,
+          user: a.user,
+          totalScore: a.result?.totalScore ?? null,
+          totalQuestions: a.result?.totalQuestions ?? null,
+          percentage: a.result?.percentage ?? null,
+          rank: a.result?.rank ?? null,
+          proctoringMode: a.proctoringMode,
+          proctoringFlags: a.proctoringEvents.length,
+          riskScore: Math.min(100, high * 20 + medium * 5),
+        }
+      })
     })
   } catch (error) {
     console.error("getExamAttemptsAdmin error:", error)
